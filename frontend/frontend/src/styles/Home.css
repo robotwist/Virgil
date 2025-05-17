@@ -1,0 +1,150 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+  color: #d1d5db;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.logo-container {
+  margin-bottom: 1rem;
+}
+
+.logo {
+  max-width: 120px;
+  height: auto;
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(42, 82, 152, 0.6);
+}
+
+h1 {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.tagline {
+  font-size: 1.2rem;
+  color: #a0aec0;
+  font-weight: 300;
+}
+
+.user-info {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #a0aec0;
+}
+
+.admin-link {
+  color: #2a5298;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.admin-link:hover {
+  color: #3a63a8;
+  text-decoration: underline;
+}
+
+.logout-button {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a0aec0;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+main {
+  flex: 1;
+}
+
+footer {
+  margin-top: 60px;
+  text-align: center;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mode-info {
+  margin-bottom: 30px;
+}
+
+h3 {
+  margin-bottom: 16px;
+  font-size: 1.2rem;
+  color: #e2e8f0;
+}
+
+.modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.mode {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 16px;
+  transition: transform 0.2s;
+}
+
+.mode:hover {
+  transform: translateY(-2px);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.mode strong {
+  display: block;
+  margin-bottom: 8px;
+  color: white;
+  font-size: 1.1rem;
+}
+
+.mode p {
+  font-size: 0.9rem;
+  color: #a0aec0;
+  margin: 0;
+}
+
+.copyright {
+  margin-top: 40px;
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+@media (max-width: 768px) {
+  .modes {
+    grid-template-columns: 1fr;
+  }
+  
+  h1 {
+    font-size: 2.5rem;
+  }
+  
+  .logo {
+    max-width: 100px;
+  }
+} 

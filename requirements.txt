@@ -1,0 +1,20 @@
+fastapi==0.109.0
+uvicorn==0.27.0
+python-dotenv==1.0.0
+openai==1.14.0
+pydantic==2.5.2
+httpx==0.26.0
+python-multipart==0.0.6
+# Authentication dependencies
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+# Database (for future implementation)
+sqlalchemy==2.0.27
+psycopg2-binary==2.9.9
+# Vector database for embeddings
+pinecone-client==3.0.0
+# Analytics
+posthog==3.0.2
+   # Run this command locally
+echo "numpy==1.24.3" >> backend/requirements.txt

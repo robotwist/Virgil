@@ -1,0 +1,45 @@
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f2f2f2;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .app-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+  }
+  
+  .home h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .tagline {
+    font-size: 1.1rem;
+    color: #777;
+    margin-bottom: 2rem;
+  }
+  
+  .input-box input {
+    padding: 10px;
+    font-size: 1rem;
+    width: 300px;
+    margin-right: 10px;
+  }
+  
+  .input-box button {
+    padding: 10px 15px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  
+  .response {
+    margin-top: 20px;
+    font-style: italic;
+    color: #333;
+  }

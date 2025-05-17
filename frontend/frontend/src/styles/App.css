@@ -1,0 +1,6 @@
+.app-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1e1e2e 0%, #0f0f1a 100%);
+  display: flex;
+  flex-direction: column;
+} 
