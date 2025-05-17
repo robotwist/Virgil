@@ -40,18 +40,42 @@ const Login = ({ onLoginSuccess }) => {
         onLoginSuccess(response.data.access_token, username);
       } else {
         // Registration request
-        const response = await axios.post(`${API_URL}/auth/register`, {
+        const userData = {
           username,
           email,
           password
-        });
+        };
+        
+        console.log('Sending registration data:', userData);
+        
+        const response = await axios.post(
+          `${API_URL}/auth/register`, 
+          userData,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
         
         // Switch to login form after successful registration
         setIsLogin(true);
         setError('Registration successful! Please log in.');
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'An error occurred. Please try again.');
+      console.error('Authentication error:', err);
+      
+      if (err.response?.status === 422) {
+        // Handle validation errors (422 Unprocessable Entity)
+        const validationErrors = err.response.data.detail;
+        if (Array.isArray(validationErrors)) {
+          // Format the validation errors in a readable way
+          const errorMessages = validationErrors.map(err => 
+            `${err.loc[1]}: ${err.msg}`
+          ).join(', ');
+          setError(`Validation error: ${errorMessages}`);
+        } else {
+          setError('Invalid form data. Please check your inputs.');
+        }
+      } else {
+        setError(err.response?.data?.detail || 'An error occurred. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +124,9 @@ const Login = ({ onLoginSuccess }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
             />
+            {!isLogin && <small>Password must be at least 6 characters</small>}
           </div>
           
           <button 

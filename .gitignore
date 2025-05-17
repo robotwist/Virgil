@@ -52,3 +52,5 @@ Desktop.ini
 htmlcov/
 .pytest_cache/
 .mypy_cache/ 
+# Local Netlify folder
+.netlify
