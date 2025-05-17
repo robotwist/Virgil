@@ -46,13 +46,14 @@ const Login = ({ onLoginSuccess }) => {
           password
         };
         
-        console.log('Sending registration data:', userData);
-        
         const response = await axios.post(
           `${API_URL}/auth/register`, 
           userData,
           { headers: { 'Content-Type': 'application/json' } }
         );
+        
+        // Log success message and user data
+        console.log('Registration successful', response.data);
         
         // Switch to login form after successful registration
         setIsLogin(true);
