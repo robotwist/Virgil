@@ -30,7 +30,7 @@ app.add_middleware(
 )
 
 # Hugging Face API settings
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/distilgpt2"
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased"
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")  # Will use free access if not provided
 HTTP_CLIENT = httpx.AsyncClient(timeout=60.0)  # Longer timeout for model inference
 
@@ -70,7 +70,7 @@ async def root():
             "/guide": "Main conversation endpoint with context",
             "/quick-guide": "Quick response endpoint"
         },
-        "huggingface_status": "Fallback mode active. Using pre-defined responses. Set up a valid Hugging Face model and API key for LLM responses.",
+        "huggingface_status": "Testing API connectivity with DistilBERT model. Please make request to verify token.",
         "docs": "/docs"
     }
 
@@ -135,27 +135,19 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         tone = "professional"
     
     try:
-        # For GPT-2, we'll use a simpler prompt format
-        # Combine system message and user message
-        prompt = f"{system_msg}\n\nUser: {user_message}\n\nVirgil:"
-        
         # Set headers based on whether we have an API key
         headers = {"Content-Type": "application/json"}
         if HUGGINGFACE_API_KEY:
             headers["Authorization"] = f"Bearer {HUGGINGFACE_API_KEY}"
         
-        # Make request to Hugging Face API
+        # For DistilBERT, we just send the user message directly
+        # This is just to test if the API key is working
         payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": max_tokens,
-                "temperature": 0.7,
-                "return_full_text": False
-            }
+            "inputs": user_message
         }
         
         logger.info("Sending request to Hugging Face API")
-        logger.info(f"Using prompt: {prompt}")
+        logger.info(f"Testing API key with user message: {user_message}")
         
         response = await HTTP_CLIENT.post(
             HUGGINGFACE_API_URL,
@@ -167,31 +159,12 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         # Check for errors
         response.raise_for_status()
         
-        # Process the response
-        result = response.json()
-        logger.info(f"Received response from Hugging Face API: {result}")
+        # If we get here, the API key is working!
+        logger.info("API key is working! Successfully made a request to Hugging Face API")
         
-        # Extract generated text from the response
-        if isinstance(result, list) and len(result) > 0:
-            if "generated_text" in result[0]:
-                # Clean up response (remove any text after double newlines)
-                generated_text = result[0]["generated_text"]
-                if "\n\n" in generated_text:
-                    generated_text = generated_text.split("\n\n")[0]
-                return generated_text
-            else:
-                logger.warning(f"Unexpected response format: {result}")
-                return str(result[0])
-        elif isinstance(result, dict) and "generated_text" in result:
-            # Handle different response format
-            generated_text = result["generated_text"]
-            if "\n\n" in generated_text:
-                generated_text = generated_text.split("\n\n")[0]
-            return generated_text
-        
-        # Fallback if we didn't get the expected format
-        logger.warning(f"Unexpected response format from Hugging Face API: {result}")
-        return get_fallback_response(user_message, tone)
+        # For this test, we'll just return a fallback response
+        # In a real implementation, we would integrate with a proper text generation model
+        return f"API connected! Here's my response: {get_fallback_response(user_message, tone)}"
         
     except httpx.HTTPStatusError as e:
         # Handle specific HTTP errors
@@ -204,7 +177,7 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         elif status_code == 503:
             return "The service is currently warming up. Your first request might take a bit longer."
         else:
-            return get_fallback_response(user_message, tone)
+            return f"API error ({status_code}): {get_fallback_response(user_message, tone)}"
             
     except httpx.TimeoutException:
         logger.error("Request to Hugging Face API timed out")
@@ -212,7 +185,7 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
             
     except Exception as e:
         logger.error(f"Error generating response: {str(e)}")
-        return get_fallback_response(user_message, tone)
+        return f"Error: {str(e)} - {get_fallback_response(user_message, tone)}"
 
 @app.post("/guide")
 async def guide(request: Request):
