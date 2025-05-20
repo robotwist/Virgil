@@ -4,10 +4,21 @@ import InputBox from '../components/InputBox';
 import Login from '../components/Login';
 import Subscription from '../components/Subscription';
 import '../styles/Home.css';
-import virgilLogo from '../assets/images/Virgil-Logo-1.png';
+import { VirgilLogo1, VirgilLogo2 } from '../assets/images';
 
 const Home = ({ isAuthenticated, username, onLoginSuccess, onLogout }) => {
   const [showSubscription, setShowSubscription] = useState(false);
+  const [activeLogoIndex, setActiveLogoIndex] = useState(0);
+  const logos = [VirgilLogo1, VirgilLogo2];
+  
+  // Automatically switch between logos every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveLogoIndex((prevIndex) => (prevIndex === 0 ? 1 : 0));
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   // Check if user needs to see subscription page
   useEffect(() => {
@@ -34,11 +45,25 @@ const Home = ({ isAuthenticated, username, onLoginSuccess, onLogout }) => {
     setShowSubscription(false);
   };
 
+  const handleLogoClick = () => {
+    setActiveLogoIndex((prevIndex) => (prevIndex === 0 ? 1 : 0));
+  };
+
+  const handleImageError = (e) => {
+    e.target.src = 'https://placehold.co/200x200/1e293b/38bdf8?text=VIRGIL';
+  };
+
   return (
     <div className="home">
       <header>
-        <div className="logo-container">
-          <img src={virgilLogo} alt="Virgil Logo" className="logo" />
+        <div className="hero-logo-container">
+          <img 
+            src={logos[activeLogoIndex]} 
+            alt="Virgil Logo" 
+            className="hero-logo"
+            onClick={handleLogoClick}
+            onError={handleImageError}
+          />
         </div>
         <h1>Virgil</h1>
         <p className="tagline">Your AI-powered real-time guide</p>

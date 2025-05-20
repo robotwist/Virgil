@@ -1,171 +1,435 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import '../styles/VoiceInterface.css';
 
+// The API URL from environment variables
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+// Convert http(s) to ws(s) for WebSocket connection
+const WS_URL = API_URL.replace(/^http/, 'ws');
+
 const VoiceInterface = ({ onSendMessage, isProcessing, lastResponse }) => {
-  const [isListening, setIsListening] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const recognitionRef = useRef(null);
-  const speechSynthesisRef = useRef(window.speechSynthesis);
+  const [capabilitiesChecked, setCapabilitiesChecked] = useState(false);
+  const [browserSupported, setBrowserSupported] = useState(true);
   
-  // Check if browser supports speech recognition and synthesis
+  const audioContext = useRef(null);
+  const mediaRecorder = useRef(null);
+  const audioChunks = useRef([]);
+  const websocket = useRef(null);
+  const animationFrame = useRef(null);
+  const audioAnalyser = useRef(null);
+  const audioDataArray = useRef(null);
+  const audioStreamRef = useRef(null);
+  const audioElRef = useRef(null);
+  
+  // Check if browser supports required APIs
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const speechSynthesis = window.speechSynthesis;
+    const isSupported = !!(
+      navigator.mediaDevices &&
+      navigator.mediaDevices.getUserMedia &&
+      window.MediaRecorder &&
+      window.AudioContext
+    );
     
-    if (SpeechRecognition && speechSynthesis) {
-      setVoiceEnabled(true);
+    setBrowserSupported(isSupported);
+    setCapabilitiesChecked(true);
+    
+    if (!isSupported) {
+      setErrorMessage('Your browser does not support the required audio features.');
+      return;
+    }
+    
+    // Initialize audio context
+    try {
+      audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
       
-      // Initialize speech recognition
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
+      // Create an audio element for playback
+      if (!audioElRef.current) {
+        audioElRef.current = new Audio();
+        audioElRef.current.onplay = () => setIsSpeaking(true);
+        audioElRef.current.onended = () => setIsSpeaking(false);
+        audioElRef.current.onpause = () => setIsSpeaking(false);
+        audioElRef.current.onerror = () => {
+          setIsSpeaking(false);
+          setErrorMessage('Error playing audio response');
+        };
+      }
       
-      recognitionRef.current.onresult = (event) => {
-        const current = event.resultIndex;
-        const result = event.results[current];
-        const transcriptText = result[0].transcript;
-        setTranscript(transcriptText);
-      };
+      // Check if WebSocket is supported
+      if (!window.WebSocket) {
+        setErrorMessage('Your browser does not support WebSockets, required for voice interaction.');
+        return;
+      }
       
-      recognitionRef.current.onend = () => {
-        if (isListening) {
-          // If we're still in listening mode but recognition ended, restart it
-          recognitionRef.current.start();
-        }
-      };
-      
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
-        setIsListening(false);
-      };
+      // Try to connect WebSocket
+      connectWebSocket();
+    } catch (e) {
+      console.error('Error initializing audio systems:', e);
+      setErrorMessage('Could not initialize audio systems: ' + e.message);
     }
     
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      if (speechSynthesisRef.current) {
-        speechSynthesisRef.current.cancel();
+      // Cleanup on unmount
+      disconnectWebSocket();
+      cleanupAudio();
+      
+      if (audioContext.current && audioContext.current.state !== 'closed') {
+        audioContext.current.close();
       }
     };
   }, []);
   
-  // Handle toggling speech recognition
-  const toggleListening = () => {
-    if (!voiceEnabled) return;
+  // Function to connect WebSocket
+  const connectWebSocket = () => {
+    if (isConnecting || isConnected) return;
     
-    if (isListening) {
-      recognitionRef.current.stop();
-      // If there's a transcript, send it as a message
-      if (transcript.trim()) {
-        onSendMessage(transcript.trim());
-        setTranscript('');
+    try {
+      setIsConnecting(true);
+      setErrorMessage('');
+      
+      // Get session ID from localStorage or generate a new one
+      const sessionId = localStorage.getItem('virgilSessionId') || 'new-session';
+      const wsUrl = `${WS_URL}/ws/audio/${sessionId}`;
+      
+      console.log('Connecting to WebSocket:', wsUrl);
+      
+      websocket.current = new WebSocket(wsUrl);
+      
+      websocket.current.onopen = () => {
+        console.log('WebSocket connection established');
+        setIsConnected(true);
+        setIsConnecting(false);
+        setErrorMessage('');
+      };
+      
+      websocket.current.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason);
+        setIsConnected(false);
+        setIsConnecting(false);
+        
+        if (event.code !== 1000) {
+          // Not a normal closure
+          setErrorMessage('Voice connection lost. Please try again.');
+          
+          // Try to reconnect after a delay
+          setTimeout(() => {
+            if (!isConnected && !isConnecting) {
+              connectWebSocket();
+            }
+          }, 3000);
+        }
+      };
+      
+      websocket.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+        setIsConnecting(false);
+        setErrorMessage('Error connecting to voice service.');
+      };
+      
+      websocket.current.onmessage = handleWebSocketMessage;
+      
+    } catch (error) {
+      console.error('Error setting up WebSocket:', error);
+      setIsConnecting(false);
+      setErrorMessage('Failed to connect to voice service: ' + error.message);
+    }
+  };
+  
+  // Handle incoming WebSocket messages
+  const handleWebSocketMessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      console.log('Received WebSocket message:', data.type);
+      
+      switch (data.type) {
+        case 'status':
+          // Status updates
+          if (data.status === 'processing') {
+            // Server is processing audio
+            console.log('Server processing audio...');
+          }
+          break;
+          
+        case 'response':
+          // Complete response with transcription, text response, and audio
+          console.log(`Transcription: ${data.transcription}`);
+          console.log(`Response: ${data.response}`);
+          console.log(`Processing times: ${JSON.stringify(data.processing_time)}`);
+          
+          // Update transcript
+          setTranscript(data.transcription);
+          
+          // Send message to parent component
+          if (onSendMessage) {
+            onSendMessage(data.transcription);
+          }
+          
+          // Play audio response if available
+          if (data.audio && data.sample_rate) {
+            playAudioResponse(data.audio, data.sample_rate);
+          }
+          break;
+          
+        case 'error':
+          // Error message
+          console.error('WebSocket error from server:', data.error);
+          setErrorMessage(data.error || 'Error processing voice command');
+          break;
+          
+        case 'command':
+          // Command response
+          console.log('Command response:', data);
+          break;
+          
+        default:
+          console.warn('Unknown message type:', data.type);
       }
-    } else {
-      recognitionRef.current.start();
-      setTranscript('');
+    } catch (error) {
+      console.error('Error handling WebSocket message:', error);
     }
-    
-    setIsListening(!isListening);
-  };
-
-  // Speak text using speech synthesis
-  const speak = (text) => {
-    if (!voiceEnabled || !text) return;
-    
-    // Cancel any ongoing speech
-    speechSynthesisRef.current.cancel();
-    
-    // Create a new utterance
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Select a voice (optional)
-    const voices = speechSynthesisRef.current.getVoices();
-    const preferredVoice = voices.find(voice => 
-      voice.lang.includes('en') && voice.name.includes('Female')
-    );
-    
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
-    
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = (err) => {
-      console.error('Speech synthesis error', err);
-      setIsSpeaking(false);
-    };
-    
-    speechSynthesisRef.current.speak(utterance);
   };
   
-  // Speak response when it changes
-  useEffect(() => {
-    if (lastResponse && !isProcessing) {
-      speak(lastResponse);
+  // Disconnect WebSocket
+  const disconnectWebSocket = () => {
+    if (websocket.current) {
+      websocket.current.close();
+      websocket.current = null;
     }
-  }, [lastResponse, isProcessing]);
+  };
   
-  // Stop speech synthesis
+  // Clean up audio resources
+  const cleanupAudio = () => {
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
+    }
+    
+    if (animationFrame.current) {
+      cancelAnimationFrame(animationFrame.current);
+      animationFrame.current = null;
+    }
+  };
+  
+  // Start recording audio
+  const startRecording = async () => {
+    if (isRecording || !isConnected) return;
+    
+    try {
+      setErrorMessage('');
+      
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      
+      // Set up audio analyzer for visualization
+      const source = audioContext.current.createMediaStreamSource(stream);
+      audioAnalyser.current = audioContext.current.createAnalyser();
+      audioAnalyser.current.fftSize = 256;
+      source.connect(audioAnalyser.current);
+      
+      audioDataArray.current = new Uint8Array(audioAnalyser.current.frequencyBinCount);
+      updateAudioVisualization();
+      
+      // Create media recorder
+      mediaRecorder.current = new MediaRecorder(stream);
+      audioChunks.current = [];
+      
+      mediaRecorder.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.current.onstop = async () => {
+        // Create audio blob from chunks
+        const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
+        
+        // Send audio data to WebSocket if connected
+        if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+          try {
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            websocket.current.send(arrayBuffer);
+          } catch (error) {
+            console.error('Error sending audio data:', error);
+            setErrorMessage('Error sending voice data.');
+          }
+        } else {
+          setErrorMessage('Voice service connection lost. Please try again.');
+          connectWebSocket();
+        }
+        
+        // Clean up audio resources
+        cleanupAudio();
+      };
+      
+      // Start recording
+      mediaRecorder.current.start();
+      setIsRecording(true);
+      
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      
+      if (error.name === 'NotAllowedError') {
+        setErrorMessage('Microphone access denied. Please allow microphone access and try again.');
+      } else {
+        setErrorMessage('Could not start recording: ' + error.message);
+      }
+      
+      cleanupAudio();
+    }
+  };
+  
+  // Stop recording
+  const stopRecording = () => {
+    if (!isRecording) return;
+    
+    if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+      mediaRecorder.current.stop();
+    }
+    
+    setIsRecording(false);
+  };
+  
+  // Update audio visualization
+  const updateAudioVisualization = () => {
+    if (audioAnalyser.current && audioDataArray.current && isRecording) {
+      audioAnalyser.current.getByteFrequencyData(audioDataArray.current);
+      
+      // Calculate average level
+      const average = audioDataArray.current.reduce((acc, val) => acc + val, 0) / 
+                     audioDataArray.current.length;
+      
+      // Update audio level (0-100)
+      setAudioLevel(Math.min(100, average * 100 / 256));
+      
+      // Continue animation
+      animationFrame.current = requestAnimationFrame(updateAudioVisualization);
+    }
+  };
+  
+  // Play audio response from base64 string
+  const playAudioResponse = (audioBase64, sampleRate) => {
+    try {
+      // Decode base64 to array buffer
+      const binaryString = atob(audioBase64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // If we have a valid audio element, use it for playback
+      if (audioElRef.current) {
+        // Create blob URL
+        const blob = new Blob([bytes.buffer], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        
+        // Set audio source and play
+        audioElRef.current.src = url;
+        audioElRef.current.play().catch(error => {
+          console.error('Error playing audio:', error);
+          setErrorMessage('Could not play audio response.');
+        });
+        
+        // Clean up blob URL when done
+        audioElRef.current.onended = () => {
+          URL.revokeObjectURL(url);
+          setIsSpeaking(false);
+        };
+      } else {
+        // Fallback to AudioContext API if audio element not available
+        audioContext.current.decodeAudioData(bytes.buffer, (buffer) => {
+          const source = audioContext.current.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioContext.current.destination);
+          source.start(0);
+          
+          setIsSpeaking(true);
+          source.onended = () => setIsSpeaking(false);
+        }, (error) => {
+          console.error('Error decoding audio data:', error);
+          setErrorMessage('Error playing audio response.');
+        });
+      }
+    } catch (error) {
+      console.error('Error playing audio response:', error);
+      setErrorMessage('Error playing voice response.');
+    }
+  };
+  
+  // Stop audio playback
   const stopSpeaking = () => {
-    if (speechSynthesisRef.current) {
-      speechSynthesisRef.current.cancel();
-      setIsSpeaking(false);
+    if (audioElRef.current) {
+      audioElRef.current.pause();
+      audioElRef.current.currentTime = 0;
     }
+    setIsSpeaking(false);
   };
   
-  if (!voiceEnabled) {
+  // If capabilities check is still pending, show loading state
+  if (!capabilitiesChecked) {
+    return <div className="voice-interface loading">Initializing voice capabilities...</div>;
+  }
+  
+  // If browser doesn't support required APIs, show error
+  if (!browserSupported) {
     return (
-      <div className="voice-unsupported">
-        <p>Voice interface is not supported in your browser.</p>
+      <div className="voice-interface unsupported">
+        <p>Your browser doesn't support voice features.</p>
       </div>
     );
   }
   
   return (
     <div className="voice-interface">
+      <div className="voice-visualizer">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <div 
+            key={index} 
+            className="visualizer-bar"
+            style={{ 
+              height: isRecording ? `${Math.max(2, audioLevel * (index + 1) / 10)}px` : '2px'
+            }}
+          />
+        ))}
+      </div>
+      
       <div className="voice-controls">
         <button 
-          className={`mic-button ${isListening ? 'listening' : ''}`} 
-          onClick={toggleListening}
-          disabled={isProcessing}
+          className={`voice-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'disabled' : ''}`}
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={isProcessing || !isConnected || isSpeaking}
         >
-          <span className="mic-icon">
-            {isListening ? '🔴' : '🎤'}
-          </span>
-          {isListening ? 'Listening...' : 'Speak'}
+          {isRecording ? 'Stop' : 'Speak'}
+          <span className="voice-icon">🎤</span>
         </button>
         
         {isSpeaking && (
           <button className="stop-button" onClick={stopSpeaking}>
-            Stop Voice
+            Stop Audio
           </button>
         )}
       </div>
       
-      {isListening && (
-        <div className="transcript-container">
-          <p className="transcript">{transcript || 'Listening...'}</p>
-          {transcript && (
-            <button 
-              className="send-transcript" 
-              onClick={() => {
-                onSendMessage(transcript.trim());
-                setTranscript('');
-                setIsListening(false);
-                recognitionRef.current.stop();
-              }}
-            >
-              Send
-            </button>
-          )}
+      {errorMessage && (
+        <div className="voice-error">{errorMessage}</div>
+      )}
+      
+      {!isConnected && !errorMessage && (
+        <div className="connection-status">
+          {isConnecting ? 'Connecting to voice service...' : 'Not connected to voice service.'}
         </div>
+      )}
+      
+      {transcript && !isRecording && (
+        <div className="transcript">"{transcript}"</div>
       )}
     </div>
   );

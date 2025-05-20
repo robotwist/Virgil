@@ -1,122 +1,153 @@
 .voice-interface {
-  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+  margin: 20px 0;
+  position: relative;
+  width: 100%;
 }
 
 .voice-controls {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
-.mic-button {
+.voice-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  background-color: rgba(42, 82, 152, 0.2);
-  color: white;
-  border: 1px solid rgba(42, 82, 152, 0.5);
-  border-radius: 20px;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.mic-button:hover:not(:disabled) {
-  background-color: rgba(42, 82, 152, 0.4);
-}
-
-.mic-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.mic-button.listening {
-  background-color: rgba(220, 38, 38, 0.2);
-  border-color: rgba(220, 38, 38, 0.5);
-  animation: pulse 1.5s infinite;
-}
-
-.mic-icon {
-  font-size: 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stop-button {
-  background-color: rgba(220, 38, 38, 0.2);
-  color: white;
-  border: 1px solid rgba(220, 38, 38, 0.5);
-  border-radius: 20px;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.stop-button:hover {
-  background-color: rgba(220, 38, 38, 0.4);
-}
-
-.transcript-container {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-top: 0.5rem;
-  width: 100%;
-  max-width: 500px;
-  position: relative;
-}
-
-.transcript {
-  color: #d1d5db;
-  margin: 0;
-  padding-right: 60px; /* Make room for send button */
-}
-
-.send-transcript {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
+  gap: 8px;
+  padding: 10px 16px;
   background-color: #2a5298;
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.send-transcript:hover {
-  background-color: #3a63a8;
-}
-
-.voice-unsupported {
-  color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.1);
-  padding: 0.75rem;
   border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.voice-button:hover:not(:disabled) {
+  background-color: #3a63a8;
+  transform: translateY(-2px);
+}
+
+.voice-button:disabled {
+  background-color: #213a68;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.voice-button.recording {
+  background-color: #e53e3e;
+  animation: pulse 1.5s infinite;
+}
+
+.voice-button.disabled {
+  background-color: #4b5563;
+}
+
+.voice-icon {
+  font-size: 1.2rem;
+}
+
+.stop-button {
+  padding: 10px 16px;
+  background-color: #4b5563;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.stop-button:hover {
+  background-color: #374151;
+}
+
+.voice-error {
+  color: #e53e3e;
+  margin-top: 10px;
+  font-size: 0.9rem;
   text-align: center;
-  margin: 1rem 0;
+  background-color: rgba(229, 62, 62, 0.1);
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.connection-status {
+  color: #9ca3af;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.voice-visualizer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: 40px;
+  width: 60%;
+  margin-bottom: 15px;
+  gap: 3px;
+}
+
+.visualizer-bar {
+  width: 3px;
+  background-color: #2a5298;
+  border-radius: 1px;
+  transition: height 0.05s ease;
+}
+
+.recording .visualizer-bar {
+  background-color: #e53e3e;
+}
+
+.transcript {
+  margin-top: 10px;
+  font-style: italic;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.voice-interface.loading,
+.voice-interface.unsupported {
+  padding: 10px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+    opacity: 1;
+    transform: scale(1);
   }
-  70% {
-    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Media queries for better responsiveness */
+@media (max-width: 600px) {
+  .voice-visualizer {
+    width: 90%;
+  }
+  
+  .voice-button, 
+  .stop-button {
+    padding: 8px 12px;
+    font-size: 0.9rem;
   }
 } 

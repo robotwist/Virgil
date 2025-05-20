@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/AdminDashboard.css';
 import virgilLogo from '../assets/images/Virgil-Logo-1.png';
+import { getAuthHeaders, isAuthenticated, isAdmin } from '../utils/auth';
 
 // Get API URL from environment variable
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -14,6 +15,14 @@ const AdminDashboard = ({ username, onLogout }) => {
   const [daysFilter, setDaysFilter] = useState(7);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
+
+  // Check if user is authorized to view admin dashboard
+  useEffect(() => {
+    if (!isAuthenticated() || !isAdmin()) {
+      navigate('/');
+    }
+  }, [navigate]);
 
   // Fetch admin dashboard data
   useEffect(() => {
@@ -22,42 +31,84 @@ const AdminDashboard = ({ username, onLogout }) => {
         setIsLoading(true);
         setError(null);
         
-        const token = localStorage.getItem('authToken');
-        const headers = { Authorization: `Bearer ${token}` };
+        // Use the auth utility to get headers
+        const headers = getAuthHeaders();
         
-        // Fetch metrics
+        // Fetch metrics - this will include all the data we need
         const metricsRes = await axios.get(`${API_URL}/admin/metrics`, { headers });
         
-        // Fetch active users
-        const usersRes = await axios.get(
-          `${API_URL}/admin/active-users?days=${daysFilter}`, 
-          { headers }
-        );
-        
-        // Fetch top tones
-        const tonesRes = await axios.get(
-          `${API_URL}/admin/top-tones?limit=5`, 
-          { headers }
-        );
-        
         setMetrics(metricsRes.data);
-        setActiveUsers(usersRes.data.count);
-        setTopTones(tonesRes.data.tones);
+        
+        // Set active users based on the metrics response and current filter
+        if (daysFilter === 1) {
+          setActiveUsers(metricsRes.data.active_users_24h || 0);
+        } else if (daysFilter === 7) {
+          setActiveUsers(metricsRes.data.active_users_7d || 0);
+        } else {
+          setActiveUsers(metricsRes.data.active_users_30d || 0);
+        }
+        
+        // Transform top tones data from the metrics response
+        if (metricsRes.data.top_tones) {
+          const tonesArray = Object.entries(metricsRes.data.top_tones).map(([name, count]) => ({
+            name,
+            count
+          }));
+          setTopTones(tonesArray);
+        }
         
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
+        
+        // Handle specific error cases
+        if (err.response?.status === 401) {
+          setError('Authentication error. Please login again.');
+          // Auto logout after 2 seconds
+          setTimeout(() => {
+            onLogout();
+            navigate('/');
+          }, 2000);
+        } else if (err.response?.status === 403) {
+          setError('You do not have permission to access the admin dashboard.');
+          // Redirect after 2 seconds
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        } else {
+          setError('Failed to load dashboard data. Please try again later.');
+        }
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchData();
-  }, [daysFilter]);
+    if (isAuthenticated() && isAdmin()) {
+      fetchData();
+    }
+  }, [daysFilter, navigate, onLogout]);
 
   const handleDaysFilterChange = (days) => {
     setDaysFilter(days);
+    // Update active users count based on already fetched metrics
+    if (metrics) {
+      if (days === 1) {
+        setActiveUsers(metrics.active_users_24h || 0);
+      } else if (days === 7) {
+        setActiveUsers(metrics.active_users_7d || 0);
+      } else {
+        setActiveUsers(metrics.active_users_30d || 0);
+      }
+    }
   };
+
+  // If not authenticated or not admin, don't render anything (will redirect in useEffect)
+  if (!isAuthenticated() || !isAdmin()) {
+    return (
+      <div className="admin-dashboard">
+        <div className="error-message">You are not authorized to view this page. Redirecting...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-dashboard">
@@ -95,7 +146,7 @@ const AdminDashboard = ({ username, onLogout }) => {
               <div className="metric-card">
                 <h3>Average Response Time</h3>
                 <div className="metric-value">
-                  {metrics?.avg_response_time ? `${metrics.avg_response_time.toFixed(0)} ms` : 'N/A'}
+                  {metrics?.avg_response_time_ms ? `${metrics.avg_response_time_ms} ms` : 'N/A'}
                 </div>
               </div>
               

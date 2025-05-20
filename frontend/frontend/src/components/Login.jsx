@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import '../styles/Login.css';
 import virgilLogo from '../assets/images/Virgil-Logo-2.png';
+import { loginUser } from '../utils/auth';
 
 // Get API URL from environment variable
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -26,15 +27,17 @@ const Login = ({ onLoginSuccess }) => {
         formData.append('username', username);
         formData.append('password', password);
         
+        console.log(`Attempting to login to ${API_URL}/auth/token`);
         const response = await axios.post(
           `${API_URL}/auth/token`, 
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
         
-        // Store the token in localStorage
-        localStorage.setItem('authToken', response.data.access_token);
-        localStorage.setItem('username', username);
+        console.log('Login successful, token received');
+        
+        // Store the token and username using our utility
+        loginUser(response.data.access_token, username);
         
         // Call the success handler
         onLoginSuccess(response.data.access_token, username);
@@ -74,6 +77,10 @@ const Login = ({ onLoginSuccess }) => {
         } else {
           setError('Invalid form data. Please check your inputs.');
         }
+      } else if (err.response?.status === 401) {
+        setError('Invalid username or password. Please try again.');
+      } else if (err.response?.status === 500) {
+        setError('Server error. Please try again later.');
       } else {
         setError(err.response?.data?.detail || 'An error occurred. Please try again.');
       }
