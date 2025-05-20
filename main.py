@@ -30,7 +30,7 @@ app.add_middleware(
 )
 
 # Hugging Face API settings
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/opt-1.3b"
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")  # Will use free access if not provided
 HTTP_CLIENT = httpx.AsyncClient(timeout=60.0)  # Longer timeout for model inference
 
