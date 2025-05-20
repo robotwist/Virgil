@@ -30,7 +30,7 @@ app.add_middleware(
 )
 
 # Hugging Face API settings
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/opt-1.3b"
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/gpt2"
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")  # Will use free access if not provided
 HTTP_CLIENT = httpx.AsyncClient(timeout=60.0)  # Longer timeout for model inference
 
@@ -118,25 +118,9 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         tone = "professional"
     
     try:
-        # Format messages for the Hugging Face API (similar to Llama chat format)
-        formatted_prompt = ""
-        
-        # Add system message if present
-        system_message = next((msg for msg in messages if msg["role"] == "system"), None)
-        if system_message:
-            formatted_prompt += f"<|system|>\n{system_message['content']}\n"
-        
-        # Add conversation history
-        for msg in messages:
-            if msg["role"] == "system":
-                continue  # Already handled above
-            elif msg["role"] == "user":
-                formatted_prompt += f"<|user|>\n{msg['content']}\n"
-            elif msg["role"] == "assistant":
-                formatted_prompt += f"<|assistant|>\n{msg['content']}\n"
-        
-        # Add the assistant prompt to indicate we want a response
-        formatted_prompt += "<|assistant|>\n"
+        # For GPT-2, we'll use a simpler prompt format
+        # Combine system message and user message
+        prompt = f"{system_msg}\n\nUser: {user_message}\n\nVirgil:"
         
         # Set headers based on whether we have an API key
         headers = {"Content-Type": "application/json"}
@@ -145,7 +129,7 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         
         # Make request to Hugging Face API
         payload = {
-            "inputs": formatted_prompt,
+            "inputs": prompt,
             "parameters": {
                 "max_new_tokens": max_tokens,
                 "temperature": 0.7,
@@ -154,6 +138,8 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         }
         
         logger.info("Sending request to Hugging Face API")
+        logger.info(f"Using prompt: {prompt}")
+        
         response = await HTTP_CLIENT.post(
             HUGGINGFACE_API_URL,
             json=payload,
@@ -171,10 +157,20 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         # Extract generated text from the response
         if isinstance(result, list) and len(result) > 0:
             if "generated_text" in result[0]:
-                return result[0]["generated_text"]
+                # Clean up response (remove any text after double newlines)
+                generated_text = result[0]["generated_text"]
+                if "\n\n" in generated_text:
+                    generated_text = generated_text.split("\n\n")[0]
+                return generated_text
             else:
                 logger.warning(f"Unexpected response format: {result}")
                 return str(result[0])
+        elif isinstance(result, dict) and "generated_text" in result:
+            # Handle different response format
+            generated_text = result["generated_text"]
+            if "\n\n" in generated_text:
+                generated_text = generated_text.split("\n\n")[0]
+            return generated_text
         
         # Fallback if we didn't get the expected format
         logger.warning(f"Unexpected response format from Hugging Face API: {result}")
