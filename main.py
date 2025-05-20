@@ -30,7 +30,7 @@ app.add_middleware(
 )
 
 # Hugging Face API settings
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/gpt2"
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium"
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")  # Will use free access if not provided
 HTTP_CLIENT = httpx.AsyncClient(timeout=60.0)  # Longer timeout for model inference
 
