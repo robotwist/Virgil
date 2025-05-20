@@ -118,10 +118,85 @@ async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 40
         tone = "professional"
     
     try:
-        # For now, just return a fallback response
-        # This ensures the app works even without proper API access
+        # Format messages for the Hugging Face API (similar to Llama chat format)
+        formatted_prompt = ""
+        
+        # Add system message if present
+        system_message = next((msg for msg in messages if msg["role"] == "system"), None)
+        if system_message:
+            formatted_prompt += f"<|system|>\n{system_message['content']}\n"
+        
+        # Add conversation history
+        for msg in messages:
+            if msg["role"] == "system":
+                continue  # Already handled above
+            elif msg["role"] == "user":
+                formatted_prompt += f"<|user|>\n{msg['content']}\n"
+            elif msg["role"] == "assistant":
+                formatted_prompt += f"<|assistant|>\n{msg['content']}\n"
+        
+        # Add the assistant prompt to indicate we want a response
+        formatted_prompt += "<|assistant|>\n"
+        
+        # Set headers based on whether we have an API key
+        headers = {"Content-Type": "application/json"}
+        if HUGGINGFACE_API_KEY:
+            headers["Authorization"] = f"Bearer {HUGGINGFACE_API_KEY}"
+        
+        # Make request to Hugging Face API
+        payload = {
+            "inputs": formatted_prompt,
+            "parameters": {
+                "max_new_tokens": max_tokens,
+                "temperature": 0.7,
+                "return_full_text": False
+            }
+        }
+        
+        logger.info("Sending request to Hugging Face API")
+        response = await HTTP_CLIENT.post(
+            HUGGINGFACE_API_URL,
+            json=payload,
+            headers=headers,
+            timeout=60.0  # Explicit timeout for this request
+        )
+        
+        # Check for errors
+        response.raise_for_status()
+        
+        # Process the response
+        result = response.json()
+        logger.info(f"Received response from Hugging Face API: {result}")
+        
+        # Extract generated text from the response
+        if isinstance(result, list) and len(result) > 0:
+            if "generated_text" in result[0]:
+                return result[0]["generated_text"]
+            else:
+                logger.warning(f"Unexpected response format: {result}")
+                return str(result[0])
+        
+        # Fallback if we didn't get the expected format
+        logger.warning(f"Unexpected response format from Hugging Face API: {result}")
         return get_fallback_response(user_message, tone)
         
+    except httpx.HTTPStatusError as e:
+        # Handle specific HTTP errors
+        status_code = e.response.status_code
+        error_text = e.response.text
+        logger.error(f"HTTP error {status_code} from Hugging Face API: {error_text}")
+        
+        if status_code == 429:
+            return "I'm currently experiencing high demand. Please try again in a moment."
+        elif status_code == 503:
+            return "The service is currently warming up. Your first request might take a bit longer."
+        else:
+            return get_fallback_response(user_message, tone)
+            
+    except httpx.TimeoutException:
+        logger.error("Request to Hugging Face API timed out")
+        return "I'm taking longer than expected to process your request. Here's what I can tell you: " + get_fallback_response(user_message, tone)
+            
     except Exception as e:
         logger.error(f"Error generating response: {str(e)}")
         return get_fallback_response(user_message, tone)
