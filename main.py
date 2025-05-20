@@ -30,7 +30,7 @@ app.add_middleware(
 )
 
 # Hugging Face API settings
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased"
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")  # Will use free access if not provided
 HTTP_CLIENT = httpx.AsyncClient(timeout=60.0)  # Longer timeout for model inference
 
