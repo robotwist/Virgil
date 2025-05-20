@@ -1,8 +1,8 @@
 # Core web requirements
-fastapi>=0.109.0,<0.110.0
+fastapi<0.110.0,>=0.109.0
 uvicorn[standard]==0.22.0
 python-multipart>=0.0.7
-websockets==9.1
+websockets>=10.4
 
 # Authentication
 python-jose[cryptography]>=3.3.0
