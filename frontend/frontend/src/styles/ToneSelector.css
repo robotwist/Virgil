@@ -3,12 +3,14 @@
   align-items: center;
   margin-bottom: 16px;
   font-size: 14px;
+  font-family: monospace;
 }
 
 .tone-label {
   margin-right: 8px;
   color: #a0aec0;
   font-weight: 500;
+  font-family: monospace;
 }
 
 .dropdown {
@@ -17,8 +19,8 @@
 }
 
 .dropdown-toggle {
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(42, 82, 152, 0.3);
+  border: 1px solid rgba(42, 82, 152, 0.5);
   color: #d1d5db;
   padding: 6px 12px;
   border-radius: 4px;
@@ -28,10 +30,11 @@
   font-size: 14px;
   min-width: 120px;
   justify-content: space-between;
+  font-family: monospace;
 }
 
 .dropdown-toggle:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(42, 82, 152, 0.4);
 }
 
 .dropdown-toggle:disabled {
@@ -49,8 +52,8 @@
   top: 100%;
   left: 0;
   z-index: 10;
-  background-color: #1e1e24;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #1e293b;
+  border: 1px solid rgba(42, 82, 152, 0.5);
   border-radius: 4px;
   list-style: none;
   padding: 0;
@@ -58,7 +61,8 @@
   width: 100%;
   max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  font-family: monospace;
 }
 
 .dropdown-menu li {
@@ -68,7 +72,7 @@
 }
 
 .dropdown-menu li:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(42, 82, 152, 0.2);
 }
 
 .dropdown-menu li.active {
@@ -80,4 +84,5 @@
   color: #ef4444;
   margin-left: 8px;
   font-size: 12px;
+  font-family: monospace;
 } 

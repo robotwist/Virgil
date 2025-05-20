@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import '../styles/InputBox.css';
 import ToneSelector from './ToneSelector';
-import VoiceInterface from './VoiceInterface';
 
 const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastResponse }) => {
     const [input, setInput] = useState('');
@@ -9,7 +8,6 @@ const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastRespons
     const [sessionId, setSessionId] = useState(null);
     const [responseTime, setResponseTime] = useState(0);
     const messageCount = useRef(0);
-    const [voiceEnabled, setVoiceEnabled] = useState(true);
     const textareaRef = useRef(null);
     
     // Load session ID from localStorage if available
@@ -30,7 +28,7 @@ const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastRespons
         if (messages.length > 0 && messages.length > messageCount.current) {
             const lastMessage = messages[messages.length - 1];
             
-            if (lastMessage.role === 'assistant' && lastMessage.responseTime) {
+            if (lastMessage.type === 'assistant' && lastMessage.responseTime) {
                 setResponseTime(lastMessage.responseTime);
                 messageCount.current = messages.length;
             }
@@ -55,87 +53,57 @@ const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastRespons
         }
     }, [input]);
     
-    const handleToneChange = (newTone) => {
+    const handleChangeTone = (newTone) => {
         setTone(newTone);
     };
     
-    // Handle submit when Enter key is pressed (unless Shift is held)
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && input.trim()) {
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSubmit();
+            handleSendMessage();
         }
     };
     
-    // Submit the message
-    const handleSubmit = () => {
-        if (input.trim() && !isLoading) {
-            sendMessage(input);
-            setInput('');
-            
-            // Reset textarea height
-            if (textareaRef.current) {
-                textareaRef.current.style.height = 'auto';
-            }
+    const handleSendMessage = () => {
+        if (input.trim() === '') return;
+        sendMessage(input);
+        setInput('');
+        
+        // Reset textarea height
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
         }
-    };
-    
-    // Handler for receiving transcribed text from VoiceInterface
-    const handleVoiceInput = (transcript) => {
-        if (transcript && transcript.trim()) {
-            // Submit the transcribed message
-            sendMessage(transcript.trim());
-        }
-    };
-    
-    // Toggle voice interface
-    const toggleVoiceInterface = () => {
-        setVoiceEnabled(!voiceEnabled);
     };
     
     return (
         <div className="input-container">
-            {voiceEnabled && (
-                <VoiceInterface 
-                    onSendMessage={handleVoiceInput}
-                    isProcessing={isLoading}
-                    lastResponse={lastResponse}
-                />
-            )}
-            
             <div className="input-box">
                 <div className="input-box-header">
-                    <ToneSelector currentTone={tone} onToneChange={handleToneChange} />
+                    <ToneSelector currentTone={tone} onToneChange={handleChangeTone} />
                     {messages.length > 0 && (
-                        <div className="response-time">
-                            Last response: {responseTime.toFixed(2)}s
-                        </div>
+                        <button className="clear-button" onClick={() => window.location.reload()}>
+                            New Chat
+                        </button>
                     )}
                 </div>
+                
+                {responseTime > 0 && <div className="response-time">Response time: {responseTime.toFixed(2)}s</div>}
                 
                 <div className="input-area">
                     <textarea
                         ref={textareaRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Send a message..."
+                        onKeyDown={handleKeyDown}
+                        placeholder="Type your message..."
                         rows={rows}
                         disabled={isLoading}
                     />
                     
                     <div className="input-buttons">
-                        <button 
-                            className="voice-toggle-button"
-                            onClick={toggleVoiceInterface}
-                            title={voiceEnabled ? "Disable voice interface" : "Enable voice interface"}
-                        >
-                            {voiceEnabled ? '🎤' : '🔇'}
-                        </button>
-                        
                         <button
                             className={`send-button ${isLoading ? 'disabled' : ''} ${!input.trim() ? 'empty' : ''}`}
-                            onClick={handleSubmit}
+                            onClick={handleSendMessage}
                             disabled={isLoading || !input.trim()}
                         >
                             {isLoading ? (

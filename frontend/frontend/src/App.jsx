@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
@@ -8,7 +8,8 @@ import InputBox from './components/InputBox';
 import Login from './components/Login';
 import AdminDashboard from './components/AdminDashboard';
 import Header from './components/Header';
-import VoiceInterfaceTest from './components/VoiceInterfaceTest';
+// Commenting out the voice interface import for now
+// import VoiceInterfaceTest from './components/VoiceInterfaceTest';
 
 // Auth utility
 import { isAuthenticated, getUsername, isAdmin, logoutUser } from './utils/auth';
@@ -29,6 +30,8 @@ function App() {
   const [lastResponse, setLastResponse] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionId, setSessionId] = useState('');
+
+  const messagesEndRef = useRef(null);
 
   // Check authentication on initial load
   useEffect(() => {
@@ -67,6 +70,18 @@ function App() {
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem('virgilMessages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    // Store the session ID in localStorage when it changes
+    localStorage.setItem('virgil_session_id', sessionId);
+  }, [sessionId]);
+
+  useEffect(() => {
+    // Scroll to the bottom when messages update
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
@@ -181,6 +196,72 @@ function App() {
     setSessionId('');
   };
 
+  // Main chat interface
+  const ChatInterface = () => (
+    <div className="App">
+      <img src="/virgil_logo.png" alt="Virgil Logo" className="App-logo" />
+      <div className="App-main">
+        <div className="card message-list">
+          {messages.length === 0 ? (
+            <div className="welcome-message">
+              <h3>Welcome to Virgil</h3>
+              <p>Your AI-powered guide for thoughtful conversation.</p>
+              <p>How can I assist you today?</p>
+            </div>
+          ) : (
+            <div className="message-container">
+              {messages.map((message, index) => (
+                <div key={index} className={`message ${message.type}`}>
+                  {message.content}
+                  {message.timestamp && <div className="message-timestamp">{message.timestamp}</div>}
+                </div>
+              ))}
+              {isLoading && (
+                <div className="message assistant loading">
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                  <div className="loading-dot"></div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+          {errorMessage && !isLoading && (
+            <div className="error-message">
+              {errorMessage}
+            </div>
+          )}
+        </div>
+        
+        <div className="controls-container">
+          {messages.length > 0 && (
+            <button 
+              className="clear-button" 
+              onClick={clearConversation}
+              aria-label="Clear conversation"
+            >
+              Clear Chat
+            </button>
+          )}
+          
+          <InputBox 
+            sendMessage={sendMessage} 
+            isLoading={isLoading}
+            messages={messages}
+            tone={tone}
+            setTone={setTone}
+            lastResponse={lastResponse}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  // Protected route for admin dashboard
+  const ProtectedAdminRoute = () => {
+    return isAdminUser ? <AdminDashboard /> : <Navigate to="/" />;
+  };
+
   return (
     <Router>
       <div className="app">
@@ -197,70 +278,16 @@ function App() {
           } />
           
           <Route path="/admin" element={
-            isAdminUser ? <AdminDashboard /> : <Navigate to="/" />
+            <ProtectedAdminRoute />
           } />
           
+          {/* Commenting out the voice test route 
           <Route path="/voice-test" element={
             <VoiceInterfaceTest />
-          } />
+          } /> */}
           
           <Route path="/" element={
-            <div className="content-container">
-              <div className="message-container">
-                {messages.length === 0 && (
-                  <div className="welcome-message">
-                    <h3>Welcome to Virgil</h3>
-                    <p>Your AI-powered real-time guide. Ask me anything!</p>
-                    {username && <p>Hello, {username}! How can I assist you today?</p>}
-                  </div>
-                )}
-                
-                {messages.map((msg, index) => (
-                  <div key={index} className={`message ${msg.type}`}>
-                    {msg.content}
-                    {msg.timestamp && (
-                      <div className="message-timestamp">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                
-                {isLoading && (
-                  <div className="loading-indicator">
-                    <div className="loading-spinner"></div>
-                    <div className="loading-text">Thinking...</div>
-                  </div>
-                )}
-                
-                {errorMessage && !isLoading && (
-                  <div className="error-banner">
-                    {errorMessage}
-                  </div>
-                )}
-              </div>
-              
-              <div className="controls-container">
-                {messages.length > 0 && (
-                  <button 
-                    className="clear-button" 
-                    onClick={clearConversation}
-                    aria-label="Clear conversation"
-                  >
-                    Clear Chat
-                  </button>
-                )}
-                
-                <InputBox 
-                  sendMessage={sendMessage} 
-                  isLoading={isLoading}
-                  messages={messages}
-                  tone={tone}
-                  setTone={setTone}
-                  lastResponse={lastResponse}
-                />
-              </div>
-            </div>
+            <ChatInterface />
           } />
         </Routes>
       </div>

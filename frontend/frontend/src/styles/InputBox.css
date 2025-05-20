@@ -1,3 +1,8 @@
+.input-container {
+  width: 100%;
+  margin-top: 1rem;
+}
+
 .input-box {
   display: flex;
   flex-direction: column;
@@ -14,7 +19,7 @@
 }
 
 .clear-button {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(42, 82, 152, 0.3);
   color: #d1d5db;
   padding: 6px 12px;
   font-size: 0.8rem;
@@ -22,7 +27,14 @@
 }
 
 .clear-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(42, 82, 152, 0.5);
+}
+
+.input-area {
+  display: flex;
+  gap: 8px;
+  position: relative;
+  width: 100%;
 }
 
 .message-container {
@@ -34,7 +46,8 @@
   overflow-y: auto;
   padding: 10px;
   border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(42, 82, 152, 0.1);
+  border: 1px solid rgba(42, 82, 152, 0.3);
   scroll-behavior: smooth;
 }
 
@@ -42,7 +55,7 @@
   text-align: center;
   padding: 20px;
   color: #d1d5db;
-  background-color: rgba(42, 82, 152, 0.1);
+  background-color: rgba(42, 82, 152, 0.2);
   border-radius: 8px;
   margin-bottom: 10px;
 }
@@ -65,6 +78,7 @@
   line-height: 1.4;
   animation: fadeIn 0.3s ease-in-out;
   position: relative;
+  font-family: monospace;
 }
 
 .message-timestamp {
@@ -92,7 +106,7 @@
 
 .message.assistant {
   align-self: flex-start;
-  background-color: #343541;
+  background-color: #1e293b;
   color: #d1d5db;
   border-bottom-left-radius: 4px;
 }
@@ -107,25 +121,16 @@
 
 .loading-indicator {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px;
-  margin: 10px 0;
+  gap: 4px;
+  animation: pulse 1.5s infinite;
 }
 
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top: 3px solid #2a5298;
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #d1d5db;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 8px;
-}
-
-.loading-text {
-  color: #d1d5db;
-  font-size: 0.9em;
+  animation: pulse 1.5s infinite alternate;
 }
 
 .error-banner {
@@ -146,25 +151,103 @@
   margin-top: 8px;
 }
 
-form {
+.input-buttons {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  align-items: flex-end;
 }
 
-input {
-  flex: 1;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(255, 255, 255, 0.05);
+.send-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #2a5298;
   color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.send-button:hover:not(:disabled) {
+  background-color: #3a63a8;
+  transform: scale(1.05);
+}
+
+.send-button.disabled {
+  background-color: #213a68;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.send-button.empty {
+  opacity: 0.5;
+}
+
+.send-icon {
   font-size: 16px;
 }
 
-input:focus {
+/* Updated textarea for dark theme with monospace font */
+textarea {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(42, 82, 152, 0.5);
+  background-color: #1e293b;
+  color: #d1d5db;
+  font-size: 16px;
+  font-family: monospace;
+  resize: none;
+  overflow: hidden;
+  min-height: 50px;
+  caret-color: #4ade80;
+  caret-shape: block;
+  caret-width: 10px;
+}
+
+textarea::placeholder {
+  color: rgba(209, 213, 219, 0.5);
+}
+
+/* Only keeping this for reference, as browser's native caret blinking is used */
+@keyframes blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+/* Pulse animation for the cursor glow effect */
+@keyframes cursorPulse {
+  0% {
+    caret-color: #4ade80;
+  }
+  50% {
+    caret-color: #9eff8a;
+    text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+  }
+  100% {
+    caret-color: #4ade80;
+  }
+}
+
+textarea:focus {
   outline: none;
-  border-color: #2a5298;
+  border-color: #4ade80;
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.3);
+  
+  /* Steady background without blinking */
+  background-color: #1e293b;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  
+  /* Only animate the cursor with a pulse effect */
+  caret-color: #4ade80;
+  animation: cursorPulse 1.5s infinite;
 }
 
 button {
@@ -176,6 +259,7 @@ button {
   border: none;
   cursor: pointer;
   transition: background-color 0.2s;
+  font-family: monospace;
 }
 
 button:hover:not(:disabled) {
@@ -210,15 +294,20 @@ button:disabled {
 }
 
 .message-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(42, 82, 152, 0.1);
   border-radius: 8px;
 }
 
 .message-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(42, 82, 152, 0.3);
   border-radius: 8px;
 }
 
 .message-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(42, 82, 152, 0.5);
+}
+
+/* Adding monospace font to all elements */
+.input-box, .input-box * {
+  font-family: monospace;
 } 
