@@ -7,6 +7,7 @@ import json
 import time
 import logging
 import random
+import uuid
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,12 +31,13 @@ app.add_middleware(
 )
 
 # Hugging Face API settings
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")  # Will use free access if not provided
-HTTP_CLIENT = httpx.AsyncClient(timeout=60.0)  # Longer timeout for model inference
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
+HTTP_CLIENT = httpx.AsyncClient(timeout=120.0)  # Longer timeout for model inference
 
 # Track ongoing conversations
-conversation_history = {}
+CONVERSATION_HISTORY = {}
+MAX_HISTORY_LENGTH = 10  # Maximum number of message pairs to store
 
 # Pre-defined responses for fallback
 FALLBACK_RESPONSES = [
@@ -90,185 +92,169 @@ async def get_tones():
         ]
     }
 
-def get_previous_messages(session_id: str, max_count: int = 5) -> List[Dict[str, str]]:
-    """Retrieve previous messages for the session"""
-    if session_id not in conversation_history:
-        conversation_history[session_id] = []
-    
-    # Get the most recent messages, limited by max_count
-    return conversation_history[session_id][-max_count:]
+def get_previous_messages(session_id):
+    """Get previous messages for a session."""
+    return CONVERSATION_HISTORY.get(session_id, [])
 
-def append_message(session_id: str, role: str, content: str):
-    """Add a message to the conversation history"""
-    if session_id not in conversation_history:
-        conversation_history[session_id] = []
+def append_message(session_id, message):
+    """Append a message to the conversation history."""
+    if session_id not in CONVERSATION_HISTORY:
+        CONVERSATION_HISTORY[session_id] = []
     
-    conversation_history[session_id].append({"role": role, "content": content})
+    CONVERSATION_HISTORY[session_id].append(message)
+    
+    # Trim history if it gets too long
+    if len(CONVERSATION_HISTORY[session_id]) > MAX_HISTORY_LENGTH * 2:  # * 2 for user + assistant pairs
+        CONVERSATION_HISTORY[session_id] = CONVERSATION_HISTORY[session_id][-MAX_HISTORY_LENGTH * 2:]
 
-def get_fallback_response(message: str, tone: str) -> str:
-    """Get a fallback response when API is unavailable"""
-    # Simple checks for common question types
-    lower_message = message.lower()
+def get_fallback_response(message, tone=None):
+    """Get a fallback response based on the message content."""
+    message = message.lower()
     
-    # About Virgil
-    if any(phrase in lower_message for phrase in ["who are you", "what are you", "tell me about yourself", "your name"]):
-        return "I'm Virgil, your friendly AI assistant! I'm designed to help answer questions, provide information, and assist with various tasks. I'm built using advanced language models and aim to be helpful, accurate, and conversational. How can I assist you today?"
+    # Check for specific topics in the message
+    if "water" in message or "drink" in message:
+        return "Staying hydrated is important! The recommended daily water intake varies by individual, but a general guideline is about 8 glasses (64 ounces) per day."
     
-    # About water (as an example specific response)
-    if "water" in lower_message:
-        return "Water is a transparent, odorless, tasteless liquid that forms the world's streams, lakes, oceans, and rain. It's essential for all known forms of life and consists of hydrogen and oxygen (H₂O)."
+    if "who are you" in message or "what are you" in message or "your name" in message:
+        return "I'm Virgil, an AI assistant designed to be helpful, harmless, and honest. I'm here to assist with information and tasks to the best of my abilities."
     
-    # General fallback
-    return random.choice(FALLBACK_RESPONSES)
+    # Default responses based on tone
+    if tone == "friendly":
+        return random.choice([
+            "I'd love to help with that! Let me know if you need more information.",
+            "Great question! I'm here to assist you with whatever you need.",
+            "I'm excited to help you with this! What else would you like to know?"
+        ])
+    elif tone == "professional":
+        return random.choice([
+            "I'd be pleased to assist with your inquiry. Please let me know if you require additional information.",
+            "Thank you for your question. I'm available to provide further assistance as needed.",
+            "I'm here to provide the information you're seeking. Please don't hesitate to ask for clarification."
+        ])
+    else:
+        return random.choice(FALLBACK_RESPONSES)
 
-async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 400) -> str:
-    """Generate a response using Hugging Face Inference API with fallback"""
-    # Extract the user's message for fallback purposes
-    user_message = next((msg["content"] for msg in messages if msg["role"] == "user"), "")
-    tone = "default"
-    
-    # Determine tone from system message
-    system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
-    if "warm" in system_msg.lower():
-        tone = "friendly"
-    elif "formal" in system_msg.lower():
-        tone = "professional"
+async def generate_response(message, tone=None, previous_messages=None):
+    """Generate a response using the Hugging Face API."""
+    logging.info(f"Testing API key with user message: {message}")
     
     try:
-        # Set headers based on whether we have an API key
-        headers = {"Content-Type": "application/json"}
-        if HUGGINGFACE_API_KEY:
-            headers["Authorization"] = f"Bearer {HUGGINGFACE_API_KEY}"
+        # Format messages for Mixtral model
+        formatted_prompt = ""
+        if previous_messages:
+            for msg in previous_messages:
+                if msg["role"] == "user":
+                    formatted_prompt += f"<s>[INST] {msg['content']} [/INST]"
+                else:  # assistant
+                    formatted_prompt += f" {msg['content']} </s>"
         
-        # For DistilBERT, we just send the user message directly
-        # This is just to test if the API key is working
+        # Add current message
+        if formatted_prompt:
+            formatted_prompt += f"<s>[INST] {message} [/INST]"
+        else:
+            formatted_prompt = f"<s>[INST] {message} [/INST]"
+        
+        # Add tone instruction if provided
+        if tone and tone != "default":
+            formatted_prompt = f"<s>[INST] Please respond in a {tone} tone to the following: {message} [/INST]"
+        
         payload = {
-            "inputs": user_message
+            "inputs": formatted_prompt,
+            "parameters": {
+                "max_new_tokens": 500,
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "do_sample": True
+            }
         }
         
-        logger.info("Sending request to Hugging Face API")
-        logger.info(f"Testing API key with user message: {user_message}")
+        headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
         
+        logging.info("Sending request to Hugging Face API")
         response = await HTTP_CLIENT.post(
             HUGGINGFACE_API_URL,
             json=payload,
-            headers=headers,
-            timeout=60.0  # Explicit timeout for this request
+            headers=headers
         )
         
-        # Check for errors
-        response.raise_for_status()
-        
-        # If we get here, the API key is working!
-        logger.info("API key is working! Successfully made a request to Hugging Face API")
-        
-        # For this test, we'll just return a fallback response
-        # In a real implementation, we would integrate with a proper text generation model
-        return f"API connected! Here's my response: {get_fallback_response(user_message, tone)}"
-        
-    except httpx.HTTPStatusError as e:
-        # Handle specific HTTP errors
-        status_code = e.response.status_code
-        error_text = e.response.text
-        logger.error(f"HTTP error {status_code} from Hugging Face API: {error_text}")
-        
-        if status_code == 429:
-            return "I'm currently experiencing high demand. Please try again in a moment."
-        elif status_code == 503:
-            return "The service is currently warming up. Your first request might take a bit longer."
+        if response.status_code == 200:
+            result = response.json()
+            # Extract the generated text from the response
+            if isinstance(result, list) and len(result) > 0:
+                generated_text = result[0].get("generated_text", "")
+                # Clean up the response - remove the input prompt part
+                if formatted_prompt in generated_text:
+                    generated_text = generated_text[len(formatted_prompt):].strip()
+                return generated_text
+            else:
+                logging.error(f"Unexpected response format: {result}")
+                return get_fallback_response(message)
         else:
-            return f"API error ({status_code}): {get_fallback_response(user_message, tone)}"
-            
-    except httpx.TimeoutException:
-        logger.error("Request to Hugging Face API timed out")
-        return "I'm taking longer than expected to process your request. Here's what I can tell you: " + get_fallback_response(user_message, tone)
+            logging.error(f"HTTP error {response.status_code} from Hugging Face API: {response.text}")
+            return get_fallback_response(message)
             
     except Exception as e:
-        logger.error(f"Error generating response: {str(e)}")
-        return f"Error: {str(e)} - {get_fallback_response(user_message, tone)}"
+        logging.exception(f"Error generating response: {str(e)}")
+        return get_fallback_response(message)
 
 @app.post("/guide")
 async def guide(request: Request):
-    """Handle the guide endpoint with full conversation context"""
+    """Main endpoint for guided interactions."""
     try:
-        start_time = time.time()
-        body = await request.json()
+        data = await request.json()
         
-        message = body.get("message", "")
-        session_id = body.get("session_id", "new-session-id")
-        tone = body.get("tone", "default")
+        message = data.get("message", "")
+        session_id = data.get("session_id", str(uuid.uuid4()))
+        tone = data.get("tone", "default")
         
-        logger.info(f"Processing guide request for session {session_id} with tone {tone}")
+        logging.info(f"Processing guide request with tone {tone}")
         
-        # Build conversation history
-        messages = []
-        
-        # Add system message with appropriate tone
-        messages.append({"role": "system", "content": get_system_prompt(tone)})
-        
-        # Add conversation history
+        # Get previous messages
         previous_messages = get_previous_messages(session_id)
-        messages.extend(previous_messages)
         
-        # Add the current user message
-        messages.append({"role": "user", "content": message})
+        start_time = time.time()
         
         # Generate response
-        ai_response = await generate_response(messages, max_tokens=800)
+        ai_response = await generate_response(message, tone, previous_messages)
         
         # Save to conversation history
-        append_message(session_id, "user", message)
-        append_message(session_id, "assistant", ai_response)
+        append_message(session_id, {"role": "user", "content": message})
+        append_message(session_id, {"role": "assistant", "content": ai_response})
         
         end_time = time.time()
-        response_time = end_time - start_time
         
         return {
             "reply": ai_response,
             "session_id": session_id,
-            "response_time": response_time
+            "response_time": end_time - start_time
         }
     except Exception as e:
-        logger.error(f"Error processing guide request: {str(e)}")
-        return {
-            "reply": "I apologize, but I encountered an issue processing your request. Please try again shortly.",
-            "session_id": body.get("session_id", "new-session-id") if isinstance(body, dict) else "new-session-id",
-            "response_time": 0.1
-        }
+        logging.exception(f"Error in guide: {str(e)}")
+        return {"reply": "I apologize, but I encountered an error. Please try again.", "error": str(e)}
 
 @app.post("/quick-guide")
 async def quick_guide(request: Request):
-    """Handle the quick-guide endpoint for faster responses without full context"""
+    """Endpoint for one-off responses without maintaining conversation history."""
     try:
+        data = await request.json()
+        
+        message = data.get("message", "")
+        tone = data.get("tone", "default")
+        
+        logging.info(f"Processing quick-guide request with tone {tone}")
+        
         start_time = time.time()
-        body = await request.json()
         
-        message = body.get("message", "")
-        tone = body.get("tone", "default")
-        
-        logger.info(f"Processing quick-guide request with tone {tone}")
-        
-        # Simplified conversation with just the system message and user query
-        messages = [
-            {"role": "system", "content": get_system_prompt(tone)},
-            {"role": "user", "content": message}
-        ]
-        
-        # Generate response with reduced tokens for faster response
-        ai_response = await generate_response(messages, max_tokens=400)
+        # Generate response with no previous messages
+        ai_response = await generate_response(message, tone)
         
         end_time = time.time()
-        response_time = end_time - start_time
         
         return {
             "reply": ai_response,
-            "session_id": "quick-response", # No session tracking for quick responses
-            "response_time": response_time
+            "session_id": "quick-response",
+            "response_time": end_time - start_time
         }
     except Exception as e:
-        logger.error(f"Error processing quick-guide request: {str(e)}")
-        return {
-            "reply": "I apologize, but I encountered an issue processing your request. Please try again shortly.",
-            "session_id": "quick-response",
-            "response_time": 0.1
-        } 
+        logging.exception(f"Error in quick-guide: {str(e)}")
+        return {"reply": "I apologize, but I encountered an error. Please try again.", "error": str(e)} 
