@@ -5,7 +5,6 @@ import httpx
 from typing import Dict, Any, List, Optional
 import json
 import time
-from openai import OpenAI
 import logging
 
 # Configure logging
@@ -29,8 +28,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Hugging Face API settings
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")  # Will use free access if not provided
+HTTP_CLIENT = httpx.AsyncClient(timeout=60.0)  # Longer timeout for model inference
 
 # Track ongoing conversations
 conversation_history = {}
@@ -62,7 +63,7 @@ async def get_tones():
         ]
     }
 
-def get_previous_messages(session_id: str, max_count: int = 10) -> List[Dict[str, str]]:
+def get_previous_messages(session_id: str, max_count: int = 5) -> List[Dict[str, str]]:
     """Retrieve previous messages for the session"""
     if session_id not in conversation_history:
         conversation_history[session_id] = []
@@ -76,6 +77,82 @@ def append_message(session_id: str, role: str, content: str):
         conversation_history[session_id] = []
     
     conversation_history[session_id].append({"role": role, "content": content})
+
+async def generate_response(messages: List[Dict[str, str]], max_tokens: int = 400) -> str:
+    """Generate a response using Hugging Face Inference API"""
+    try:
+        # Format messages for the Hugging Face API (similar to Llama chat format)
+        formatted_prompt = ""
+        
+        # Add system message if present
+        system_message = next((msg for msg in messages if msg["role"] == "system"), None)
+        if system_message:
+            formatted_prompt += f"<|system|>\n{system_message['content']}\n"
+        
+        # Add conversation history
+        for msg in messages:
+            if msg["role"] == "system":
+                continue  # Already handled above
+            elif msg["role"] == "user":
+                formatted_prompt += f"<|user|>\n{msg['content']}\n"
+            elif msg["role"] == "assistant":
+                formatted_prompt += f"<|assistant|>\n{msg['content']}\n"
+        
+        # Add the assistant prompt to indicate we want a response
+        formatted_prompt += "<|assistant|>\n"
+        
+        # Set headers based on whether we have an API key
+        headers = {"Content-Type": "application/json"}
+        if HUGGINGFACE_API_KEY:
+            headers["Authorization"] = f"Bearer {HUGGINGFACE_API_KEY}"
+        
+        # Make request to Hugging Face API
+        payload = {
+            "inputs": formatted_prompt,
+            "parameters": {
+                "max_new_tokens": max_tokens,
+                "temperature": 0.7,
+                "return_full_text": False
+            }
+        }
+        
+        response = await HTTP_CLIENT.post(
+            HUGGINGFACE_API_URL,
+            json=payload,
+            headers=headers
+        )
+        
+        # Check for errors
+        response.raise_for_status()
+        
+        # Process the response
+        result = response.json()
+        
+        # Extract generated text from the response
+        if isinstance(result, list) and len(result) > 0:
+            if "generated_text" in result[0]:
+                return result[0]["generated_text"]
+            else:
+                return str(result[0])
+        
+        # Fallback if we didn't get the expected format
+        logger.warning(f"Unexpected response format from Hugging Face API: {result}")
+        return str(result)
+        
+    except httpx.HTTPStatusError as e:
+        # Handle specific HTTP errors
+        status_code = e.response.status_code
+        if status_code == 429:
+            return "I'm currently experiencing high demand. Please try again in a moment."
+        elif status_code == 503:
+            return "The service is currently warming up. Your first request might take a bit longer."
+        else:
+            logger.error(f"HTTP error from Hugging Face API: {e}")
+            return "I encountered an error processing your request. Please try again later."
+    
+    except Exception as e:
+        logger.error(f"Error generating response: {str(e)}")
+        return "I'm having trouble connecting to my knowledge base right now. Please try again shortly."
 
 @app.post("/guide")
 async def guide(request: Request):
@@ -103,16 +180,8 @@ async def guide(request: Request):
         # Add the current user message
         messages.append({"role": "user", "content": message})
         
-        # Call OpenAI API
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=800
-        )
-        
-        # Extract response
-        ai_response = response.choices[0].message.content
+        # Generate response
+        ai_response = await generate_response(messages, max_tokens=800)
         
         # Save to conversation history
         append_message(session_id, "user", message)
@@ -148,16 +217,8 @@ async def quick_guide(request: Request):
             {"role": "user", "content": message}
         ]
         
-        # Call OpenAI API with reduced tokens for faster response
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=400
-        )
-        
-        # Extract response
-        ai_response = response.choices[0].message.content
+        # Generate response with reduced tokens for faster response
+        ai_response = await generate_response(messages, max_tokens=400)
         
         end_time = time.time()
         response_time = end_time - start_time
