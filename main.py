@@ -57,6 +57,23 @@ def get_system_prompt(tone: str = "default") -> str:
     else:  # default
         return f"{base_prompt} Provide helpful, accurate, and concise responses while balancing friendliness with professionalism."
 
+@app.get("/")
+async def root():
+    """Root endpoint with API status information"""
+    return {
+        "status": "ok",
+        "name": "Virgil AI Assistant API",
+        "version": "1.0.0",
+        "endpoints": {
+            "/health": "Health check",
+            "/tones": "Available conversation tones",
+            "/guide": "Main conversation endpoint with context",
+            "/quick-guide": "Quick response endpoint"
+        },
+        "huggingface_status": "Fallback mode active. Using pre-defined responses. Set up a valid Hugging Face model and API key for LLM responses.",
+        "docs": "/docs"
+    }
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
