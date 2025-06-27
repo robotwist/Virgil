@@ -4,9 +4,24 @@
   "description": "A nimble Progressive Web App that provides real-time, discrete conversation coaching for high-stakes situations.",
   "main": "app.js",
   "scripts": {
+    "start": "python server.py",
+    "dev": "python server.py",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "keywords": [
+    "pwa",
+    "coaching",
+    "interview",
+    "conversation",
+    "ai-assistant",
+    "speech-recognition",
+    "text-to-speech"
+  ],
+  "author": "Virgil Coach",
+  "license": "MIT",
+  "homepage": "https://github.com/robotwist/Virgil",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robotwist/Virgil.git"
+  }
 }
