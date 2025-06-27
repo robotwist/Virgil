@@ -1,0 +1,12 @@
+{
+  "name": "virgil-coach",
+  "version": "1.0.0",
+  "description": "A nimble Progressive Web App that provides real-time, discrete conversation coaching for high-stakes situations.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
