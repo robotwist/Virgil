@@ -52,8 +52,9 @@ class VirgìlCoach {
             
             this.recognition.onerror = (event) => {
                 console.error('Speech recognition error:', event.error);
-                this.updateStatus('error', 'ERROR');
-                setTimeout(() => this.startListening(), 2000);
+                this.isListening = false;
+                this.updateStatus('error', 'CLICK TO RETRY');
+                // Don't auto-restart on error to prevent infinite loops
             };
             
             this.recognition.onend = () => {

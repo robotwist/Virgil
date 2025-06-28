@@ -1,6 +1,5 @@
-# Jekyll configuration for GitHub Pages
-source: virgil-coach
-destination: _site
+# Jekyll configuration for GitHub Pages  
+# Don't set source - serve from root but exclude everything except virgil-coach
 
 # Exclude problematic directories
 exclude:
