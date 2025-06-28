@@ -1,0 +1,48 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="url(#background)" />
+  
+  <!-- Theater Mask -->
+  <g transform="translate(128, 128)">
+    <!-- Main mask shape -->
+    <path d="M128 40 C200 40, 256 80, 256 140 L256 200 C256 260, 200 300, 128 300 C56 300, 0 260, 0 200 L0 140 C0 80, 56 40, 128 40 Z" 
+          fill="#fff" stroke="#1a1a2e" stroke-width="4"/>
+    
+    <!-- Left eye (smiling) -->
+    <ellipse cx="80" cy="120" rx="20" ry="15" fill="#1a1a2e"/>
+    <path d="M60 135 Q80 145, 100 135" stroke="#1a1a2e" stroke-width="3" fill="none"/>
+    
+    <!-- Right eye (smiling) -->
+    <ellipse cx="176" cy="120" rx="20" ry="15" fill="#1a1a2e"/>
+    <path d="M156 135 Q176 145, 196 135" stroke="#1a1a2e" stroke-width="3" fill="none"/>
+    
+    <!-- Smile -->
+    <path d="M80 180 Q128 220, 176 180" stroke="#1a1a2e" stroke-width="6" fill="none"/>
+    
+    <!-- Decorative swirls -->
+    <path d="M30 60 Q20 40, 40 50 Q50 30, 30 40" stroke="#4CAF50" stroke-width="3" fill="none"/>
+    <path d="M226 60 Q236 40, 216 50 Q206 30, 226 40" stroke="#4CAF50" stroke-width="3" fill="none"/>
+  </g>
+  
+  <!-- Microphone Icon -->
+  <g transform="translate(320, 360)">
+    <rect x="12" y="0" width="24" height="40" rx="12" fill="#4CAF50"/>
+    <rect x="8" y="45" width="32" height="4" rx="2" fill="#4CAF50"/>
+    <rect x="22" y="49" width="4" height="15" fill="#4CAF50"/>
+  </g>
+  
+  <!-- Speech Bubble -->
+  <g transform="translate(60, 60)">
+    <ellipse cx="50" cy="30" rx="40" ry="25" fill="rgba(255,255,255,0.9)" stroke="#1a1a2e" stroke-width="2"/>
+    <path d="M25 45 L35 55 L45 45" fill="rgba(255,255,255,0.9)"/>
+    <text x="50" y="36" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#1a1a2e">💡</text>
+  </g>
+  
+  <!-- Gradient Definitions -->
+  <defs>
+    <linearGradient id="background" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e" />
+      <stop offset="100%" style="stop-color:#16213e" />
+    </linearGradient>
+  </defs>
+</svg> 

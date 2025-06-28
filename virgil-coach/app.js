@@ -158,7 +158,7 @@ class VirgìlCoach {
     getModeInfo(mode) {
         const modes = {
             coding: { name: 'Coding Interview', icon: '💻' },
-            iran: { name: 'Iran Situation', icon: '🌍' },
+            political: { name: 'Political Discussion', icon: '🏛️' },
             hr: { name: 'HR Interview', icon: '👔' },
             teacher: { name: 'Teacher Interview', icon: '📚' },
             cyrano: { name: 'Cyrano de Bergerac', icon: '💕' }
@@ -282,14 +282,33 @@ class VirgìlCoach {
             ];
             return codingAdvice[Math.floor(Math.random() * codingAdvice.length)];
         }
-            iran: [
-                "Acknowledge the complexity of the situation",
-                "Show respect for all perspectives involved",
-                "Focus on diplomatic solutions",
-                "Mention humanitarian concerns",
-                "Suggest dialogue and understanding",
-                "Emphasize peaceful resolution"
-            ],
+        if (mode === 'political') {
+            if (q.includes('israel') || q.includes('palestine') || q.includes('gaza')) {
+                return "Acknowledge both sides' legitimate concerns. Say: 'This is a complex situation with valid perspectives. I believe in peaceful coexistence and dialogue.'";
+            }
+            if (q.includes('trump') || q.includes('biden') || q.includes('election')) {
+                return "Stay measured: 'I focus on policies rather than personalities. What matters most to me is [specific policy area] and evidence-based solutions.'";
+            }
+            if (q.includes('climate') || q.includes('environment')) {
+                return "Find common ground: 'I think we all want clean air and water for our kids. Let's focus on practical solutions that work economically too.'";
+            }
+            if (q.includes('immigration') || q.includes('border')) {
+                return "Be balanced: 'Immigration is complex. I support both border security and humane treatment. We need comprehensive reform that addresses root causes.'";
+            }
+            if (q.includes('healthcare') || q.includes('medical')) {
+                return "Focus on outcomes: 'Healthcare should be accessible and affordable. I'm interested in what actually works - looking at successful models worldwide.'";
+            }
+            // Fallback political advice
+            const politicalAdvice = [
+                "Ask: 'What specific outcomes are you hoping for?'",
+                "Find shared values: 'I think we both want what's best for families'",
+                "Redirect to policy: 'What policies do you think would help most?'",
+                "Acknowledge complexity: 'These issues have many layers to consider'",
+                "Suggest common ground: 'Where do you think we might agree?'",
+                "Stay curious: 'Help me understand your perspective better'"
+            ];
+            return politicalAdvice[Math.floor(Math.random() * politicalAdvice.length)];
+        }
         if (mode === 'hr') {
             if (q.includes('yourself') || q.includes('introduce')) {
                 return "Structure it: 'I'm [role] with [X years] experience in [industry]. I excel at [key skill]. I'm excited about this role because [specific reason].'";
