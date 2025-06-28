@@ -3,7 +3,6 @@ const OFFLINE_URL = '/';
 
 // Files to cache for offline use
 const urlsToCache = [
-  '/',
   '/index.html',
   '/app.js',
   '/manifest.json',
@@ -56,7 +55,15 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Cache files individually to handle errors gracefully
+        return Promise.allSettled(
+          urlsToCache.map(url => 
+            cache.add(url).catch(err => {
+              console.warn(`Failed to cache ${url}:`, err);
+              return null;
+            })
+          )
+        );
       })
       .then(() => {
         // Store offline advice in cache
@@ -68,6 +75,9 @@ self.addEventListener('install', (event) => {
               })
             );
           });
+      })
+      .catch(err => {
+        console.error('Service worker install failed:', err);
       })
   );
   

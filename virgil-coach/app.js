@@ -486,15 +486,49 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Show custom install button after a delay
-    setTimeout(() => {
-        if (confirm('Install Virgil Coach as an app for discrete access?')) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                deferredPrompt = null;
+    // Create install button for user-initiated install
+    const showInstallButton = () => {
+        if (deferredPrompt && !document.getElementById('installBtn')) {
+            const installBtn = document.createElement('button');
+            installBtn.id = 'installBtn';
+            installBtn.textContent = '📱 Install App';
+            installBtn.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(139, 69, 19, 0.9);
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 8px;
+                cursor: pointer;
+                z-index: 1000;
+                font-size: 14px;
+                backdrop-filter: blur(10px);
+            `;
+            
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                    installBtn.remove();
+                }
             });
+            
+            document.body.appendChild(installBtn);
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                if (installBtn.parentNode) {
+                    installBtn.remove();
+                }
+            }, 10000);
         }
-    }, 3000);
+    };
+    
+    // Show install button after user has interacted with the page
+    setTimeout(showInstallButton, 2000);
 });
 
 // Handle app launch
