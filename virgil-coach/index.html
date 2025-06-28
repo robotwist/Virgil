@@ -51,20 +51,31 @@
 
         .header {
             text-align: center;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
+            margin-bottom: 30px;
+            padding: 20px 0;
+        }
+
+        .logo-image {
+            max-width: 280px;
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 8px 16px rgba(0,0,0,0.3));
+            margin: 0 auto;
+            display: block;
         }
 
         .logo {
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin-bottom: 5px;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            margin-bottom: 8px;
         }
 
         .subtitle {
-            font-size: 0.9rem;
-            opacity: 0.7;
+            font-size: 1rem;
+            color: rgba(255,255,255,0.8);
+            font-weight: 300;
         }
 
         .mode-selector {
@@ -316,6 +327,15 @@
                 width: 100px;
                 height: 100px;
             }
+            
+            .logo-image {
+                max-width: 240px;
+            }
+            
+            .header {
+                margin-bottom: 20px;
+                padding: 15px 0;
+            }
         }
     </style>
 </head>
@@ -323,8 +343,7 @@
     <div class="app-container" id="appContainer">
         <!-- Header -->
         <div class="header">
-            <div class="logo">🎭 Virgil Coach</div>
-            <div class="subtitle">Your discrete conversation assistant</div>
+            <img src="icons/Virgil-Logo-2.png" alt="Virgil" class="logo-image">
         </div>
 
         <!-- Mode Selection -->
