@@ -57,9 +57,8 @@ class VirgìlCoach {
             };
             
             this.recognition.onend = () => {
-                if (this.isListening) {
-                    this.recognition.start(); // Restart if still supposed to be listening
-                }
+                this.isListening = false;
+                this.updateStatus('ready', 'TAP TO START');
             };
         } else {
             this.showError('Speech recognition not supported in this browser');
@@ -165,11 +164,17 @@ class VirgìlCoach {
     }
 
     startListening() {
-        if (!this.recognition || this.isMuted) return;
+        if (!this.recognition || this.isMuted || this.isListening) return;
         
-        this.isListening = true;
-        this.recognition.start();
-        this.updateStatus('listening', 'LISTENING...');
+        try {
+            this.isListening = true;
+            this.recognition.start();
+            this.updateStatus('listening', 'LISTENING...');
+        } catch (error) {
+            console.error('Error starting speech recognition:', error);
+            this.isListening = false;
+            this.updateStatus('error', 'CLICK TO RETRY');
+        }
     }
 
     stopListening() {
@@ -212,7 +217,7 @@ class VirgìlCoach {
             this.updateAdvice('Sorry, I couldn\'t process that question.');
         }
         
-        this.updateStatus('listening', 'LISTENING...');
+        this.updateStatus('ready', 'TAP TO START');
     }
 
     async generateAdvice(question) {
