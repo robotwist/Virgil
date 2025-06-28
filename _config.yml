@@ -1,0 +1,39 @@
+# Jekyll configuration for GitHub Pages
+source: virgil-coach
+destination: _site
+
+# Exclude problematic directories
+exclude:
+  - fresh_env/
+  - .venv/
+  - venv/
+  - node_modules/
+  - package*.json
+  - "*.py"
+  - requirements.txt
+  - Procfile
+  - README-BACKEND.md
+  - DEPLOYMENT.md
+  - VIRGIL_COACH_LAUNCH_STRATEGY.md
+  - DEPLOYMENT_QUICKSTART.md
+  - INSTANT_DEPLOY.md
+  - virgil-coach-pwa-concept.md
+  - analytics/
+  - auth/
+  - data/
+  - frontend/
+  - managed_context/
+  - test_suite_analysis/
+  - test_samples/
+  - tests/
+  - "*.tar.gz"
+
+# Include necessary files
+include:
+  - _headers
+  - .nojekyll
+
+# Disable Jekyll processing for app files
+plugins: []
+markdown: kramdown
+highlighter: rouge 

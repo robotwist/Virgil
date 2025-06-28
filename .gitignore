@@ -54,3 +54,32 @@ htmlcov/
 .mypy_cache/ 
 # Local Netlify folder
 .netlify
+
+# Python virtual environments
+fresh_env/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Certificate files
+*.pem
+*.crt
+*.key
+
+# Build files
+dist/
+build/
