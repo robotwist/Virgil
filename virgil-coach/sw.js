@@ -7,6 +7,8 @@ const urlsToCache = [
   '/index.html',
   '/app.js',
   '/manifest.json',
+  '/icons/icon.svg',
+  '/icons/icon-144.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
 ];
@@ -20,7 +22,7 @@ const OFFLINE_ADVICE = {
     "Mention time and space complexity",
     "Draw diagrams if it helps explain"
   ],
-  iran: [
+  political: [
     "Acknowledge the complexity of the situation",
     "Show respect for all perspectives involved",
     "Focus on diplomatic solutions",
@@ -177,7 +179,7 @@ self.addEventListener('push', (event) => {
     const options = {
       body: data.body,
       icon: '/icons/icon-192.png',
-      badge: '/icons/icon-72.png',
+      badge: '/icons/icon-144.png',
       vibrate: [100, 50, 100],
       tag: 'virgil-coach',
       requireInteraction: false,
