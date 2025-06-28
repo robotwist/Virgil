@@ -1,4 +1,4 @@
-class VirgìlCoach {
+class VirgilCoach {
     constructor() {
         this.currentMode = null;
         this.isListening = false;
@@ -474,7 +474,7 @@ class VirgìlCoach {
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.virgilCoach = new VirgìlCoach();
+    window.virgilCoach = new VirgilCoach();
 });
 
 // Handle app install prompt
