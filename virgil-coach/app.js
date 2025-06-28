@@ -11,6 +11,9 @@ class VirgilCoach {
         this.debugMode = false;
         this.aiEnabled = false;
         this.backendUrl = null;
+        this.curatedResponses = this.loadCuratedResponses();
+        this.lastResponse = null;
+        this.lastQuestion = null;
         
         this.initializeElements();
         this.initializeSpeech();
@@ -32,6 +35,7 @@ class VirgilCoach {
             muteBtn: document.getElementById('muteBtn'),
             debugBtn: document.getElementById('debugBtn'),
             aiBtn: document.getElementById('aiBtn'),
+            saveBtn: document.getElementById('saveBtn'),
             volumeSlider: document.getElementById('volumeSlider'),
             hiddenOverlay: document.getElementById('hiddenOverlay')
         };
@@ -117,6 +121,11 @@ class VirgilCoach {
         // AI Mode button
         this.elements.aiBtn.addEventListener('click', () => {
             this.toggleAIMode();
+        });
+
+        // Save Response button
+        this.elements.saveBtn.addEventListener('click', () => {
+            this.saveCurrentResponse();
         });
 
         // Volume control
@@ -260,8 +269,20 @@ class VirgilCoach {
             }
         }
         
+        // Store question for potential curation
+        this.lastQuestion = question;
+        
+        // Try curated responses first (best of both worlds)
+        const curatedResponse = this.findCuratedResponse(question, this.currentMode);
+        if (curatedResponse) {
+            this.lastResponse = curatedResponse;
+            return this.formatSmartResponse(curatedResponse, 'curated', ['saved-ai']);
+        }
+        
         // Use smart keyword-based responses (current system)
-        return this.getMockAdvice(question, this.currentMode);
+        const response = this.getMockAdvice(question, this.currentMode);
+        this.lastResponse = response;
+        return response;
     }
 
     async getAIAdvice(question, mode) {
@@ -294,6 +315,10 @@ class VirgilCoach {
         if (advice.length > 200) {
             advice = advice.substring(0, 200) + '...';
         }
+        
+        // Store for potential curation
+        this.lastResponse = advice;
+        this.lastQuestion = question;
         
         return this.formatSmartResponse(advice, 'ai-mistral', ['mixtral-8x7b']);
     }
@@ -555,7 +580,14 @@ class VirgilCoach {
         
         // Add visual indicator if debug mode is enabled
         if (this.debugMode) {
-            const indicator = responseType === 'smart' ? '🎯 Smart' : '🔄 General';
+            let indicator;
+            switch(responseType) {
+                case 'smart': indicator = '🎯 Smart'; break;
+                case 'curated': indicator = '⭐ Curated'; break;
+                case 'ai-mistral': indicator = '🧠 AI'; break;
+                case 'fallback': indicator = '🔄 General'; break;
+                default: indicator = '❓ Unknown';
+            }
             const keywordText = keywords.length > 0 ? ` (${keywords.join(', ')})` : '';
             return `${indicator}${keywordText}: ${advice}`;
         }
@@ -603,6 +635,113 @@ class VirgilCoach {
         } catch (error) {
             console.warn('Backend connection test failed:', error);
             return false;
+        }
+    }
+
+    loadCuratedResponses() {
+        const saved = localStorage.getItem('virgilCuratedResponses');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+        
+        // Default curated responses (empty to start)
+        return {
+            coding: {},
+            political: {},
+            hr: {},
+            teacher: {},
+            cyrano: {}
+        };
+    }
+    
+    saveCuratedResponses() {
+        localStorage.setItem('virgilCuratedResponses', JSON.stringify(this.curatedResponses));
+    }
+    
+    addCuratedResponse(question, response, mode) {
+        const key = this.generateResponseKey(question);
+        this.curatedResponses[mode][key] = {
+            question: question,
+            response: response,
+            timestamp: Date.now(),
+            source: 'ai-curated'
+        };
+        this.saveCuratedResponses();
+    }
+    
+    generateResponseKey(question) {
+        // Create a simple key from question keywords
+        return question.toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .split(' ')
+            .filter(word => word.length > 3)
+            .slice(0, 3)
+            .join('_');
+    }
+    
+    findCuratedResponse(question, mode) {
+        const key = this.generateResponseKey(question);
+        const modeResponses = this.curatedResponses[mode] || {};
+        
+        // Direct match
+        if (modeResponses[key]) {
+            return modeResponses[key].response;
+        }
+        
+        // Fuzzy match - check if question contains similar keywords
+        const questionWords = question.toLowerCase().split(' ');
+        for (const [savedKey, savedResponse] of Object.entries(modeResponses)) {
+            const savedWords = savedKey.split('_');
+            const overlap = savedWords.filter(word => 
+                questionWords.some(qWord => qWord.includes(word) || word.includes(qWord))
+            );
+            
+            if (overlap.length >= 2) { // At least 2 keyword matches
+                return savedResponse.response;
+            }
+        }
+        
+        return null;
+    }
+    
+    saveCurrentResponse() {
+        if (this.lastResponse && this.lastQuestion && this.currentMode) {
+            this.addCuratedResponse(this.lastQuestion, this.lastResponse, this.currentMode);
+            this.updateAdvice(`✅ Response saved! This answer will be used for similar questions.`);
+            
+            // Show curated response count
+            const count = Object.keys(this.curatedResponses[this.currentMode] || {}).length;
+            setTimeout(() => {
+                this.updateAdvice(`📚 ${count} curated responses for ${this.currentMode} mode`);
+            }, 2000);
+        } else {
+            this.updateAdvice(`❌ No response to save. Generate an AI response first.`);
+        }
+    }
+
+    showCuratedStats() {
+        const stats = Object.entries(this.curatedResponses).map(([mode, responses]) => {
+            const count = Object.keys(responses).length;
+            return `${mode}: ${count}`;
+        }).join(', ');
+        
+        const total = Object.values(this.curatedResponses)
+            .reduce((sum, responses) => sum + Object.keys(responses).length, 0);
+        
+        this.updateAdvice(`📚 Curated Responses - Total: ${total} (${stats})`);
+    }
+    
+    clearCuratedResponses() {
+        if (confirm('Clear all curated responses? This cannot be undone.')) {
+            this.curatedResponses = {
+                coding: {},
+                political: {},
+                hr: {},
+                teacher: {},
+                cyrano: {}
+            };
+            this.saveCuratedResponses();
+            this.updateAdvice('🗑️ All curated responses cleared');
         }
     }
 }
