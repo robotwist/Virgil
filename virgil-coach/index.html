@@ -223,58 +223,223 @@
 
         .controls {
             display: flex;
-            gap: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
             margin-top: 20px;
+            justify-content: center;
+            max-width: 500px;
         }
 
+        /* Modern Button Design System */
         .control-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.2);
             color: #fff;
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 10px 16px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-            backdrop-filter: blur(5px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.85rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            min-width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
         }
 
         .control-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .control-btn:hover::before {
+            left: 100%;
         }
 
         .control-btn:active {
-            transform: translateY(-2px);
+            transform: translateY(-1px);
+            transition: transform 0.1s;
         }
 
+        /* Specialized Button Variants */
+        .debug-btn {
+            background: linear-gradient(135deg, rgba(255,165,0,0.25), rgba(255,140,0,0.15)) !important;
+            border: 1px solid rgba(255,165,0,0.4) !important;
+            color: #fff !important;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .debug-btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,165,0,0.1) 50%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .debug-btn:hover {
+            background: linear-gradient(135deg, rgba(255,165,0,0.4), rgba(255,140,0,0.25)) !important;
+            border-color: rgba(255,165,0,0.6) !important;
+            box-shadow: 0 8px 24px rgba(255,165,0,0.2) !important;
+        }
+
+        .debug-btn:hover::after {
+            opacity: 1;
+        }
+
+        .ai-btn {
+            background: linear-gradient(135deg, rgba(138,43,226,0.25), rgba(128,0,128,0.15)) !important;
+            border: 1px solid rgba(138,43,226,0.4) !important;
+            color: #fff !important;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ai-btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(138,43,226,0.1) 50%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .ai-btn:hover {
+            background: linear-gradient(135deg, rgba(138,43,226,0.4), rgba(128,0,128,0.25)) !important;
+            border-color: rgba(138,43,226,0.6) !important;
+            box-shadow: 0 8px 24px rgba(138,43,226,0.2) !important;
+        }
+
+        .ai-btn:hover::after {
+            opacity: 1;
+        }
+
+        .save-btn {
+            background: linear-gradient(135deg, rgba(34,139,34,0.25), rgba(40,167,69,0.15)) !important;
+            border: 1px solid rgba(34,139,34,0.4) !important;
+            color: #fff !important;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .save-btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(34,139,34,0.1) 50%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .save-btn:hover {
+            background: linear-gradient(135deg, rgba(34,139,34,0.4), rgba(40,167,69,0.25)) !important;
+            border-color: rgba(34,139,34,0.6) !important;
+            box-shadow: 0 8px 24px rgba(34,139,34,0.2) !important;
+        }
+
+        .save-btn:hover::after {
+            opacity: 1;
+        }
+
+        /* Primary Action Button (Back/Hide/Mute) */
+        .control-btn:not(.debug-btn):not(.ai-btn):not(.save-btn) {
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08));
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+
+        .control-btn:not(.debug-btn):not(.ai-btn):not(.save-btn):hover {
+            background: linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.15));
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        /* Button States */
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .control-btn.active {
+            background: linear-gradient(135deg, rgba(76,175,80,0.3), rgba(76,175,80,0.2));
+            border-color: rgba(76,175,80,0.5);
+            box-shadow: 0 0 20px rgba(76,175,80,0.3);
+        }
+
+        /* Enhanced Volume Control */
         .volume-control {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-top: 15px;
+            gap: 12px;
+            margin-top: 20px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
         }
 
         .volume-slider {
             width: 120px;
             -webkit-appearance: none;
             appearance: none;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 2px;
+            height: 6px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.4));
+            border-radius: 3px;
             outline: none;
+            transition: all 0.3s ease;
         }
 
         .volume-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 16px;
-            height: 16px;
-            background: #4CAF50;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             border-radius: 50%;
             cursor: pointer;
+            box-shadow: 0 2px 8px rgba(76,175,80,0.4);
+            transition: all 0.3s ease;
         }
 
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(76,175,80,0.6);
+        }
+
+        /* Modern Typography */
+        .volume-control label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        /* Essential Interface Elements */
         .emergency-hint {
             position: fixed;
             bottom: 20px;
@@ -308,35 +473,45 @@
             text-align: center;
         }
 
-        .save-btn {
-            background: rgba(34, 139, 34, 0.8) !important;
-            border: 1px solid rgba(34, 139, 34, 0.6) !important;
-        }
+        /* 
+        ═══════════════════════════════════════════════════════════════
+                        🎨 VIRGIL COACH DESIGN SYSTEM 
+        ═══════════════════════════════════════════════════════════════
         
-        .save-btn:hover {
-            background: rgba(34, 139, 34, 1) !important;
-            border-color: rgba(34, 139, 34, 0.8) !important;
-        }
-
-        .ai-btn {
-            background: rgba(138, 43, 226, 0.8) !important;
-            border: 1px solid rgba(138, 43, 226, 0.6) !important;
-        }
+        📐 DESIGN PRINCIPLES:
+        • Modern Glassmorphism: Blur effects, translucent layers
+        • Sophisticated Color Palette: Dark gradients with accent colors
+        • Smooth Interactions: Cubic-bezier transitions, hover animations
+        • Visual Hierarchy: Size, color, and shadow differentiation
+        • Accessibility: High contrast, clear visual feedback
         
-        .ai-btn:hover {
-            background: rgba(138, 43, 226, 1) !important;
-            border-color: rgba(138, 43, 226, 0.8) !important;
-        }
-
-        .debug-btn {
-            background: rgba(255, 165, 0, 0.8) !important;
-            border: 1px solid rgba(255, 165, 0, 0.6) !important;
-        }
+        🎨 COLOR SYSTEM:
+        • Background: Linear gradient (1a1a2e → 16213e)
+        • Primary Glass: rgba(255,255,255,0.1-0.25)
+        • Debug/Warning: Orange gradient (255,165,0)
+        • AI/Intelligence: Purple gradient (138,43,226)
+        • Success/Save: Green gradient (34,139,34) 
+        • Active State: Bright green (76,175,80)
         
-        .debug-btn:hover {
-            background: rgba(255, 165, 0, 1) !important;
-            border-color: rgba(255, 165, 0, 0.8) !important;
-        }
+        🔧 BUTTON HIERARCHY:
+        1. Primary Actions: Clean glass with white borders
+        2. Secondary Features: Color-coded with gradients
+        3. Special Functions: Enhanced with shimmer effects
+        4. Disabled: 50% opacity, no interactions
+        
+        ✨ INTERACTION PATTERNS:
+        • Hover: Lift effect (-2px), enhanced shadows
+        • Active: Subtle press (-1px), quick transition
+        • Focus: Glow effects for accessibility
+        • Loading: Shimmer animation across surface
+        
+        📱 RESPONSIVE BEHAVIOR:
+        • Mobile: Smaller padding, flexible layout
+        • Touch: Larger tap targets, clear feedback
+        • Desktop: Enhanced hover states, precision
+        
+        ═══════════════════════════════════════════════════════════════
+        */
 
         @media (max-width: 480px) {
             .mode-selector {
@@ -365,6 +540,40 @@
             .header {
                 margin-bottom: 20px;
                 padding: 15px 0;
+            }
+
+            /* Mobile-optimized Controls */
+            .controls {
+                gap: 6px;
+                max-width: 100%;
+                padding: 0 10px;
+            }
+
+            .control-btn {
+                font-size: 0.8rem;
+                padding: 8px 12px;
+                min-width: 80px;
+                flex: 1;
+                max-width: 120px;
+            }
+
+            .volume-control {
+                margin: 15px 10px;
+                padding: 10px 12px;
+            }
+
+            .volume-slider {
+                width: 100px;
+            }
+
+            /* Touch-friendly enhancements */
+            .control-btn:hover {
+                transform: none; /* Disable hover lift on touch devices */
+            }
+
+            .control-btn:active {
+                transform: scale(0.95);
+                transition: transform 0.1s;
             }
         }
     </style>
