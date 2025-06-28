@@ -228,15 +228,15 @@
         }
 
         .control-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            padding: 12px 20px;
-            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
+            font-size: 0.9rem;
+            backdrop-filter: blur(5px);
         }
 
         .control-btn:hover {
@@ -306,6 +306,16 @@
             color: #333;
             font-size: 0.8rem;
             text-align: center;
+        }
+
+        .debug-btn {
+            background: rgba(255, 165, 0, 0.8) !important;
+            border: 1px solid rgba(255, 165, 0, 0.6) !important;
+        }
+        
+        .debug-btn:hover {
+            background: rgba(255, 165, 0, 1) !important;
+            border-color: rgba(255, 165, 0, 0.8) !important;
         }
 
         @media (max-width: 480px) {
@@ -451,6 +461,7 @@
                 <button class="control-btn" id="backBtn">← Back to Modes</button>
                 <button class="control-btn" id="hideBtn">Hide Interface</button>
                 <button class="control-btn" id="muteBtn">🔊 Mute</button>
+                <button class="control-btn debug-btn" id="debugBtn">🐛 Debug</button>
             </div>
             
             <div class="volume-control">

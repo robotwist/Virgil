@@ -8,6 +8,7 @@ class VirgilCoach {
         this.synthesis = window.speechSynthesis;
         this.volume = 0.3;
         this.conversationContext = [];
+        this.debugMode = false;
         
         this.initializeElements();
         this.initializeSpeech();
@@ -27,6 +28,7 @@ class VirgilCoach {
             backBtn: document.getElementById('backBtn'),
             hideBtn: document.getElementById('hideBtn'),
             muteBtn: document.getElementById('muteBtn'),
+            debugBtn: document.getElementById('debugBtn'),
             volumeSlider: document.getElementById('volumeSlider'),
             hiddenOverlay: document.getElementById('hiddenOverlay')
         };
@@ -102,6 +104,11 @@ class VirgilCoach {
 
         this.elements.muteBtn.addEventListener('click', () => {
             this.toggleMute();
+        });
+
+        // Debug button
+        this.elements.debugBtn.addEventListener('click', () => {
+            this.toggleDebugMode();
         });
 
         // Volume control
@@ -253,17 +260,25 @@ class VirgilCoach {
 
     getMockAdvice(question, mode) {
         const q = question.toLowerCase();
+        let responseType = 'fallback'; // Track response type
+        let triggeredKeywords = []; // Track what keywords triggered smart response
         
         // Smart coaching based on what they're actually being asked
         if (mode === 'coding') {
             if (q.includes('yourself') || q.includes('introduce')) {
-                return "Say: 'I'm a software engineer with X years of experience. My passion is solving complex problems efficiently. Recently I built [specific project] using [technologies].'";
+                responseType = 'smart';
+                triggeredKeywords = ['introduction'];
+                return this.formatSmartResponse("Say: 'I'm a software engineer with X years of experience. My passion is solving complex problems efficiently. Recently I built [specific project] using [technologies].'", responseType, triggeredKeywords);
             }
             if (q.includes('algorithm') || q.includes('data structure')) {
-                return "Start with: 'Let me think through this step by step.' Then explain your approach before coding. Ask about input constraints.";
+                responseType = 'smart';
+                triggeredKeywords = ['algorithm/data structure'];
+                return this.formatSmartResponse("Start with: 'Let me think through this step by step.' Then explain your approach before coding. Ask about input constraints.", responseType, triggeredKeywords);
             }
             if (q.includes('experience') || q.includes('project')) {
-                return "Use the STAR method: Situation, Task, Action, Result. Pick a project where you solved a real technical challenge with measurable impact.";
+                responseType = 'smart';
+                triggeredKeywords = ['experience/project'];
+                return this.formatSmartResponse("Use the STAR method: Situation, Task, Action, Result. Pick a project where you solved a real technical challenge with measurable impact.", responseType, triggeredKeywords);
             }
             if (q.includes('weakness') || q.includes('improve')) {
                 return "Pick a real technical skill you're improving. Say: 'I'm strengthening my [specific skill] by [specific action]. For example...'";
@@ -280,7 +295,7 @@ class VirgilCoach {
                 "Think out loud so they follow your reasoning",
                 "Ask clarifying questions about the requirements"
             ];
-            return codingAdvice[Math.floor(Math.random() * codingAdvice.length)];
+            return this.formatSmartResponse(codingAdvice[Math.floor(Math.random() * codingAdvice.length)], 'fallback', ['general']);
         }
         if (mode === 'political') {
             if (q.includes('israel') || q.includes('palestine') || q.includes('gaza')) {
@@ -314,7 +329,9 @@ class VirgilCoach {
                 return "Structure it: 'I'm [role] with [X years] experience in [industry]. I excel at [key skill]. I'm excited about this role because [specific reason].'";
             }
             if (q.includes('weakness')) {
-                return "Say: 'I used to struggle with [real weakness], but I've improved by [specific action]. For example, [brief story with result].'";
+                responseType = 'smart';
+                triggeredKeywords = ['weakness'];
+                return this.formatSmartResponse("Say: 'I used to struggle with [real weakness], but I've improved by [specific action]. For example, [brief story with result].'", responseType, triggeredKeywords);
             }
             if (q.includes('strength')) {
                 return "Pick one strength with proof: 'My biggest strength is [skill]. For example, at [company] I [specific achievement with numbers].'";
@@ -452,7 +469,8 @@ class VirgilCoach {
         const settings = {
             volume: this.volume,
             currentMode: this.currentMode,
-            isMuted: this.isMuted
+            isMuted: this.isMuted,
+            debugMode: this.debugMode
         };
         localStorage.setItem('virgilCoachSettings', JSON.stringify(settings));
     }
@@ -463,6 +481,7 @@ class VirgilCoach {
             const settings = JSON.parse(saved);
             this.volume = settings.volume || 0.3;
             this.isMuted = settings.isMuted || false;
+            this.debugMode = settings.debugMode || false;
             
             this.elements.volumeSlider.value = this.volume * 100;
             this.elements.muteBtn.textContent = this.isMuted ? '🔇 Unmute' : '🔊 Mute';
@@ -472,6 +491,35 @@ class VirgilCoach {
     showError(message) {
         this.updateAdvice(`Error: ${message}`);
         this.updateStatus('error', 'ERROR');
+    }
+
+    formatSmartResponse(advice, responseType, keywords) {
+        // Store response metadata for debugging
+        this.lastResponseType = responseType;
+        this.lastKeywords = keywords;
+        
+        // Add visual indicator if debug mode is enabled
+        if (this.debugMode) {
+            const indicator = responseType === 'smart' ? '🎯 Smart' : '🔄 General';
+            const keywordText = keywords.length > 0 ? ` (${keywords.join(', ')})` : '';
+            return `${indicator}${keywordText}: ${advice}`;
+        }
+        
+        return advice;
+    }
+
+    toggleDebugMode() {
+        this.debugMode = !this.debugMode;
+        this.updateAdvice(`Debug mode ${this.debugMode ? 'ON' : 'OFF'} - ${this.debugMode ? 'Response types will be shown' : 'Clean responses only'}`);
+        this.saveSettings();
+    }
+
+    showResponseStats() {
+        const type = this.lastResponseType || 'none';
+        const keywords = this.lastKeywords || [];
+        const typeEmoji = type === 'smart' ? '🎯' : type === 'fallback' ? '🔄' : '❓';
+        
+        return `${typeEmoji} Last response: ${type.toUpperCase()}${keywords.length > 0 ? ` (triggered by: ${keywords.join(', ')})` : ''}`;
     }
 }
 
