@@ -9,6 +9,8 @@ class VirgilCoach {
         this.volume = 0.3;
         this.conversationContext = [];
         this.debugMode = false;
+        this.aiEnabled = false;
+        this.backendUrl = null;
         
         this.initializeElements();
         this.initializeSpeech();
@@ -242,9 +244,52 @@ class VirgilCoach {
         const prompt = this.getModePrompt(this.currentMode);
         const context = this.getRecentContext();
         
-        // In a real implementation, this would call your AI API
-        // For now, we'll use mode-specific responses
+        // Try AI-enhanced response if backend is available and user opts in
+        if (this.aiEnabled && this.backendUrl) {
+            try {
+                return await this.getAIAdvice(question, this.currentMode);
+            } catch (error) {
+                console.warn('AI API failed, falling back to smart responses:', error);
+                // Graceful fallback to smart responses
+            }
+        }
+        
+        // Use smart keyword-based responses (current system)
         return this.getMockAdvice(question, this.currentMode);
+    }
+
+    async getAIAdvice(question, mode) {
+        const prompt = this.getModePrompt(mode);
+        const context = this.getRecentContext();
+        
+        // Use your existing FastAPI backend with Mistral Mixtral-8x7B
+        const backendUrl = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000'  // Local development
+            : 'https://your-fastapi-backend.herokuapp.com'; // Production
+        
+        const response = await fetch(`${backendUrl}/guide`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: `[${mode.toUpperCase()} COACHING] ${question}`,
+                tone: 'professional',
+                session_id: `virgil-coach-${this.currentMode}-${Date.now()}`
+            })
+        });
+
+        const data = await response.json();
+        
+        // Format the response to fit coaching context
+        let advice = data.reply;
+        
+        // Keep responses concise for real-time coaching
+        if (advice.length > 200) {
+            advice = advice.substring(0, 200) + '...';
+        }
+        
+        return this.formatSmartResponse(advice, 'ai-mistral', ['mixtral-8x7b']);
     }
 
     getModePrompt(mode) {
@@ -470,7 +515,9 @@ class VirgilCoach {
             volume: this.volume,
             currentMode: this.currentMode,
             isMuted: this.isMuted,
-            debugMode: this.debugMode
+            debugMode: this.debugMode,
+            aiEnabled: this.aiEnabled,
+            backendUrl: this.backendUrl
         };
         localStorage.setItem('virgilCoachSettings', JSON.stringify(settings));
     }
@@ -482,6 +529,8 @@ class VirgilCoach {
             this.volume = settings.volume || 0.3;
             this.isMuted = settings.isMuted || false;
             this.debugMode = settings.debugMode || false;
+            this.aiEnabled = settings.aiEnabled || false;
+            this.backendUrl = settings.backendUrl || null;
             
             this.elements.volumeSlider.value = this.volume * 100;
             this.elements.muteBtn.textContent = this.isMuted ? '🔇 Unmute' : '🔊 Mute';
@@ -520,6 +569,35 @@ class VirgilCoach {
         const typeEmoji = type === 'smart' ? '🎯' : type === 'fallback' ? '🔄' : '❓';
         
         return `${typeEmoji} Last response: ${type.toUpperCase()}${keywords.length > 0 ? ` (triggered by: ${keywords.join(', ')})` : ''}`;
+    }
+
+    toggleAIMode() {
+        this.aiEnabled = !this.aiEnabled;
+        
+        if (this.aiEnabled && !this.backendUrl) {
+            // Auto-detect backend URL
+            this.backendUrl = window.location.hostname === 'localhost' 
+                ? 'http://localhost:8000'
+                : 'https://your-fastapi-backend.herokuapp.com';
+        }
+        
+        this.updateAdvice(`AI mode ${this.aiEnabled ? 'ON' : 'OFF'} - ${this.aiEnabled ? 'Using Mistral Mixtral-8x7B backend' : 'Using local smart responses'}`);
+        this.saveSettings();
+    }
+    
+    async testBackendConnection() {
+        if (!this.backendUrl) return false;
+        
+        try {
+            const response = await fetch(`${this.backendUrl}/health`, {
+                method: 'GET',
+                timeout: 5000
+            });
+            return response.ok;
+        } catch (error) {
+            console.warn('Backend connection test failed:', error);
+            return false;
+        }
     }
 }
 
