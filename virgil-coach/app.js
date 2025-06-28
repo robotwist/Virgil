@@ -335,6 +335,9 @@ class VirgilCoach {
             ];
             return hrAdvice[Math.floor(Math.random() * hrAdvice.length)];
         }
+        
+        // Generic fallback advice for other modes
+        const advice = {
             teacher: [
                 "Focus on student-centered learning approaches",
                 "Mention differentiated instruction strategies",
