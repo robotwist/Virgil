@@ -256,7 +256,7 @@ class VirgilCoach {
     }
 
     async generateAdvice(question) {
-        const prompt = this.getModePrompt(this.currentMode);
+        const prompt = this.generateContextualPrompt(question, this.currentMode);
         const context = this.getRecentContext();
         
         // Try AI-enhanced response if backend is available and user opts in
@@ -324,14 +324,69 @@ class VirgilCoach {
     }
 
     getModePrompt(mode) {
-        const prompts = {
-            coding: "You're a senior engineer coaching someone in a technical interview. Give brief, confident technical advice:",
-            iran: "You're advising on navigating complex geopolitical situations with cultural sensitivity. Provide diplomatic guidance:",
-            hr: "You're an HR expert coaching someone in a job interview. Give concise, professional advice:",
-            teacher: "You're an education expert helping in a teaching interview. Provide pedagogical insights:",
-            cyrano: "You're Cyrano de Bergerac, master of eloquent romance. Whisper charming, witty responses:"
+        // Intelligent prompt system that adapts based on question type
+        const basePrompts = {
+            coding: "You are an expert software engineer assistant",
+            political: "You are a knowledgeable political and current affairs expert", 
+            hr: "You are an experienced HR and career professional",
+            teacher: "You are an experienced educator and teaching expert",
+            cyrano: "You are a charming conversationalist with wit and eloquence"
         };
-        return prompts[mode];
+        return basePrompts[mode] || basePrompts.hr;
+    }
+
+    generateContextualPrompt(question, mode) {
+        // Detect if this is a factual question or coaching question
+        const isFactualQuestion = this.isFactualQuestion(question);
+        const basePrompt = this.getModePrompt(mode);
+        
+        if (isFactualQuestion) {
+            return `${basePrompt}. Answer this factual question directly and accurately: "${question}"
+
+Provide a clear, concise, and factual response. If it's a number, statistic, or specific fact, state it directly.`;
+        } else {
+            // Coaching/advice question
+            return `${basePrompt}. Someone is asking for advice in a ${mode} context: "${question}"
+
+Provide brief, actionable coaching advice (1-2 sentences) that directly addresses their question. Be specific and helpful.`;
+        }
+    }
+
+    isFactualQuestion(question) {
+        const q = question.toLowerCase();
+        
+        // Factual question indicators
+        const factualIndicators = [
+            'how many', 'how much', 'what is', 'what are', 'when did', 'when was', 'when is',
+            'where is', 'where are', 'who is', 'who was', 'which', 'does california get',
+            'population of', 'capital of', 'founded in', 'invented', 'discovered',
+            'electoral votes', 'gdp of', 'unemployment rate', 'inflation rate',
+            'stock price', 'market cap', 'revenue', 'profit', 'headquarters',
+            'ceo of', 'president of', 'governor of', 'mayor of',
+            'definition of', 'meaning of', 'temperature', 'weather',
+            'distance between', 'height of', 'weight of', 'age of'
+        ];
+        
+        // Check for factual question patterns
+        return factualIndicators.some(indicator => q.includes(indicator)) ||
+               /^(what|when|where|who|why|how|which|does|did|is|are|was|were|can|will|would)\s/.test(q) && 
+               !this.isCoachingQuestion(question);
+    }
+
+    isCoachingQuestion(question) {
+        const q = question.toLowerCase();
+        
+        // Coaching/advice question indicators  
+        const coachingIndicators = [
+            'how should i', 'what should i', 'how do i', 'should i',
+            'advice', 'help me', 'recommend', 'suggest', 'tips',
+            'how to', 'best way to', 'strategies for', 'approach to',
+            'tell me about yourself', 'weakness', 'strength', 'experience with',
+            'handle', 'deal with', 'manage', 'improve', 'better at',
+            'interview', 'negotiate', 'respond to', 'say when'
+        ];
+        
+        return coachingIndicators.some(indicator => q.includes(indicator));
     }
 
     getMockAdvice(question, mode) {
