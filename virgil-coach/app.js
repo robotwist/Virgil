@@ -19,6 +19,7 @@ class VirgilCoach {
         this.initializeSpeech();
         this.bindEvents();
         this.loadSettings();
+        this.updateAIButton();
     }
 
     initializeElements() {
@@ -286,41 +287,66 @@ class VirgilCoach {
     }
 
     async getAIAdvice(question, mode) {
-        const prompt = this.getModePrompt(mode);
-        const context = this.getRecentContext();
-        
-        // Use your existing FastAPI backend with Mistral Mixtral-8x7B
-        const backendUrl = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8000'  // Local development
-            : 'https://your-fastapi-backend.herokuapp.com'; // Production
-        
-        const response = await fetch(`${backendUrl}/guide`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: `[${mode.toUpperCase()} COACHING] ${question}`,
-                tone: 'professional',
-                session_id: `virgil-coach-${this.currentMode}-${Date.now()}`
-            })
-        });
+        try {
+            const prompt = this.generateContextualPrompt(question, mode);
+            const context = this.getRecentContext();
+            
+            // Check if we have a valid backend URL configured
+            if (!this.backendUrl || this.backendUrl.includes('your-fastapi-backend')) {
+                throw new Error('Backend not configured');
+            }
+            
+            const response = await fetch(`${this.backendUrl}/guide`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: prompt,
+                    tone: 'professional',
+                    session_id: `virgil-coach-${this.currentMode}-${Date.now()}`
+                }),
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
 
-        const data = await response.json();
-        
-        // Format the response to fit coaching context
-        let advice = data.reply;
-        
-        // Keep responses concise for real-time coaching
-        if (advice.length > 200) {
-            advice = advice.substring(0, 200) + '...';
+            if (!response.ok) {
+                throw new Error(`Backend returned ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Format the response to fit coaching context
+            let advice = data.reply || data.message || data.response;
+            
+            if (!advice) {
+                throw new Error('No advice in response');
+            }
+            
+            // Keep responses concise for real-time coaching
+            if (advice.length > 200) {
+                advice = advice.substring(0, 200) + '...';
+            }
+            
+            // Store for potential curation
+            this.lastResponse = advice;
+            this.lastQuestion = question;
+            
+            return this.formatSmartResponse(advice, 'ai-mistral', ['mixtral-8x7b']);
+            
+        } catch (error) {
+            console.warn('AI Backend unavailable:', error.message);
+            
+            // Graceful fallback: Use smart contextual responses instead
+            this.updateAdvice(`🔄 AI backend unavailable, using smart responses instead`);
+            
+            // Disable AI mode and fallback to smart responses
+            this.aiEnabled = false;
+            this.saveSettings();
+            this.updateAIButton();
+            
+            // Return smart contextual response as fallback
+            return this.getMockAdvice(question, mode);
         }
-        
-        // Store for potential curation
-        this.lastResponse = advice;
-        this.lastQuestion = question;
-        
-        return this.formatSmartResponse(advice, 'ai-mistral', ['mixtral-8x7b']);
     }
 
     getModePrompt(mode) {
@@ -687,30 +713,68 @@ Provide brief, actionable coaching advice (1-2 sentences) that directly addresse
     }
 
     toggleAIMode() {
-        this.aiEnabled = !this.aiEnabled;
-        
-        if (this.aiEnabled && !this.backendUrl) {
-            // Auto-detect backend URL
-            this.backendUrl = window.location.hostname === 'localhost' 
-                ? 'http://localhost:8000'
-                : 'https://your-fastapi-backend.herokuapp.com';
+        if (!this.backendUrl || this.backendUrl.includes('your-fastapi-backend')) {
+            // Prompt user to configure backend
+            const userUrl = prompt(`🧠 Configure AI Backend:\n\nEnter your FastAPI backend URL\n(e.g., https://your-app.herokuapp.com)\n\nOr click Cancel to use smart responses only:`);
+            
+            if (userUrl && userUrl.trim()) {
+                this.backendUrl = userUrl.trim();
+                this.aiEnabled = true;
+                this.saveSettings();
+                this.updateAdvice(`✅ AI Backend configured: ${this.backendUrl}`);
+            } else {
+                this.updateAdvice(`ℹ️ Using smart contextual responses (no AI backend needed)`);
+                return;
+            }
+        } else {
+            this.aiEnabled = !this.aiEnabled;
+            this.saveSettings();
         }
         
-        this.updateAdvice(`AI mode ${this.aiEnabled ? 'ON' : 'OFF'} - ${this.aiEnabled ? 'Using Mistral Mixtral-8x7B backend' : 'Using local smart responses'}`);
-        this.saveSettings();
-    }
-    
-    async testBackendConnection() {
-        if (!this.backendUrl) return false;
+        this.updateAIButton();
         
+        if (this.aiEnabled) {
+            this.testBackendConnection();
+        }
+    }
+
+    updateAIButton() {
+        const btn = this.elements.aiBtn;
+        if (this.aiEnabled) {
+            btn.textContent = '🧠 AI: ON';
+            btn.classList.add('active');
+        } else {
+            btn.textContent = '🧠 AI: OFF';
+            btn.classList.remove('active');
+        }
+    }
+
+    async testBackendConnection() {
+        if (!this.backendUrl || this.backendUrl.includes('your-fastapi-backend')) {
+            this.updateAdvice(`⚙️ No AI backend configured. Using smart responses.`);
+            return false;
+        }
+
         try {
+            this.updateAdvice(`🔄 Testing AI backend connection...`);
+            
             const response = await fetch(`${this.backendUrl}/health`, {
                 method: 'GET',
-                timeout: 5000
+                signal: AbortSignal.timeout(5000)
             });
-            return response.ok;
+            
+            if (response.ok) {
+                this.updateAdvice(`✅ AI backend connected successfully!`);
+                return true;
+            } else {
+                throw new Error(`Status: ${response.status}`);
+            }
         } catch (error) {
-            console.warn('Backend connection test failed:', error);
+            console.warn('Backend connection failed:', error);
+            this.updateAdvice(`❌ AI backend unavailable. Using smart responses instead.`);
+            this.aiEnabled = false;
+            this.saveSettings();
+            this.updateAIButton();
             return false;
         }
     }
