@@ -77,20 +77,22 @@
         }
 
         .mode-card {
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid transparent;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.2);
             border-radius: 16px;
-            padding: 16px;
+            padding: 1.5rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            position: relative;
             backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
 
         .mode-card:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateY(-2px);
+            transform: translateY(-5px);
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+            border-color: rgba(255,255,255,0.4);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
         }
 
         .mode-card.active {
@@ -100,8 +102,24 @@
 
         .mode-icon {
             font-size: 2rem;
-            margin-bottom: 8px;
-            display: block;
+            margin-bottom: 0.75rem;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+        }
+
+        .mode-icon svg {
+            color: inherit;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+            transition: all 0.3s ease;
+        }
+
+        .mode-card:hover .mode-icon svg {
+            transform: scale(1.1);
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
         }
 
         .mode-name {
@@ -216,7 +234,7 @@
         }
 
         .control-btn:active {
-            transform: translateY(0);
+            transform: translateY(-2px);
         }
 
         .volume-control {
@@ -312,31 +330,87 @@
         <!-- Mode Selection -->
         <div class="mode-selector" id="modeSelector">
             <div class="mode-card" data-mode="coding">
-                <span class="mode-icon">💻</span>
+                <span class="mode-icon">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 12C8 9.79086 9.79086 8 12 8H36C38.2091 8 40 9.79086 40 12V36C40 38.2091 38.2091 40 36 40H12C9.79086 40 8 38.2091 8 36V12Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <circle cx="12" cy="14" r="1.5" fill="currentColor"/>
+                        <circle cx="16" cy="14" r="1.5" fill="currentColor"/>
+                        <circle cx="20" cy="14" r="1.5" fill="currentColor"/>
+                        <path d="M14 22L18 26L14 30" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <path d="M22 30H34" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </span>
                 <div class="mode-name">Coding Interview</div>
                 <div class="mode-desc">Technical guidance & algorithms</div>
             </div>
             
             <div class="mode-card" data-mode="political">
-                <span class="mode-icon">🏛️</span>
+                <span class="mode-icon">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 38H40V40H8V38Z" fill="currentColor"/>
+                        <path d="M16 24H32V38H16V24Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M12 28H20V32H12V28Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M28 28H36V32H28V28Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <circle cx="24" cy="16" r="4" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M18 18C18 18 20 20 24 20C28 20 30 18 30 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <path d="M24 8V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <path d="M19.76 9.76L22.59 12.59" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <path d="M28.24 9.76L25.41 12.59" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </span>
                 <div class="mode-name">Political Discussion</div>
                 <div class="mode-desc">Navigate complex political conversations</div>
             </div>
             
             <div class="mode-card" data-mode="hr">
-                <span class="mode-icon">👔</span>
+                <span class="mode-icon">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="24" cy="14" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M18 24C18 21.7909 19.7909 20 22 20H26C28.2091 20 30 21.7909 30 24V28H18V24Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M16 32H32L30 40H18L16 32Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M20 24V20" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <path d="M28 24V20" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <path d="M22 12L26 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                        <circle cx="38" cy="10" r="3" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                        <path d="M10 13V16H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <path d="M38 13V16H34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </svg>
+                </span>
                 <div class="mode-name">HR Interview</div>
                 <div class="mode-desc">Professional coaching</div>
             </div>
             
             <div class="mode-card" data-mode="teacher">
-                <span class="mode-icon">📚</span>
+                <span class="mode-icon">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 12C8 10.8954 8.89543 10 10 10H38C39.1046 10 40 10.8954 40 12V32C40 33.1046 39.1046 34 38 34H10C8.89543 34 8 33.1046 8 32V12Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M14 18L20 24L26 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <circle cx="32" cy="20" r="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M28 28H36" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <path d="M12 38H36" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <circle cx="18" cy="6" r="2" fill="currentColor"/>
+                        <circle cx="24" cy="4" r="2" fill="currentColor"/>
+                        <circle cx="30" cy="6" r="2" fill="currentColor"/>
+                        <path d="M20 34V40" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        <path d="M28 34V40" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </span>
                 <div class="mode-name">Teacher Interview</div>
                 <div class="mode-desc">Educational expertise</div>
             </div>
             
             <div class="mode-card" data-mode="cyrano">
-                <span class="mode-icon">💕</span>
+                <span class="mode-icon">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M24 36C17.38 30.24 12 25.28 12 19C12 15.69 14.69 13 18 13C20.76 13 23.09 14.81 24 17.23C24.91 14.81 27.24 13 30 13C33.31 13 36 15.69 36 19C36 25.28 30.62 30.24 24 36Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <circle cx="18" cy="17" r="1.5" fill="currentColor"/>
+                        <circle cx="30" cy="17" r="1.5" fill="currentColor"/>
+                        <path d="M12 24C10.8954 24 10 23.1046 10 22V18C10 16.8954 10.8954 16 12 16H16C17.1046 16 18 16.8954 18 18V20L14 24H12Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                        <path d="M36 24C37.1046 24 38 23.1046 38 22V18C38 16.8954 37.1046 16 36 16H32C30.8954 16 30 16.8954 30 18V20L34 24H36Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                        <path d="M20 8C20 8 22 6 24 6C26 6 28 8 28 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </span>
                 <div class="mode-name">Cyrano de Bergerac</div>
                 <div class="mode-desc">Romantic eloquence</div>
             </div>
