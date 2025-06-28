@@ -31,6 +31,7 @@ class VirgilCoach {
             hideBtn: document.getElementById('hideBtn'),
             muteBtn: document.getElementById('muteBtn'),
             debugBtn: document.getElementById('debugBtn'),
+            aiBtn: document.getElementById('aiBtn'),
             volumeSlider: document.getElementById('volumeSlider'),
             hiddenOverlay: document.getElementById('hiddenOverlay')
         };
@@ -111,6 +112,11 @@ class VirgilCoach {
         // Debug button
         this.elements.debugBtn.addEventListener('click', () => {
             this.toggleDebugMode();
+        });
+
+        // AI Mode button
+        this.elements.aiBtn.addEventListener('click', () => {
+            this.toggleAIMode();
         });
 
         // Volume control
