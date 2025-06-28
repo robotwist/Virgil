@@ -37,17 +37,27 @@ class VirgìlCoach {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             this.recognition = new SpeechRecognition();
             
-            this.recognition.continuous = true;
-            this.recognition.interimResults = false;
+            this.recognition.continuous = false; // Don't interrupt - wait for complete phrases
+            this.recognition.interimResults = true; // Show what user is saying
             this.recognition.lang = 'en-US';
+            this.recognition.maxAlternatives = 1;
             
             this.recognition.onstart = () => {
                 this.updateStatus('listening', 'LISTENING...');
             };
             
             this.recognition.onresult = (event) => {
-                const transcript = event.results[event.results.length - 1][0].transcript.trim();
-                this.processQuestion(transcript);
+                const result = event.results[event.results.length - 1];
+                if (result.isFinal) {
+                    const transcript = result[0].transcript.trim();
+                    if (transcript.length > 3) { // Only process meaningful input
+                        this.processQuestion(transcript);
+                    }
+                } else {
+                    // Show interim results so user knows they're being heard
+                    const interim = result[0].transcript;
+                    this.updateStatus('listening', `Hearing: "${interim}"`);
+                }
             };
             
             this.recognition.onerror = (event) => {
@@ -242,15 +252,36 @@ class VirgìlCoach {
     }
 
     getMockAdvice(question, mode) {
-        const advice = {
-            coding: [
-                "Think out loud about your approach first",
-                "Start with a brute force solution, then optimize",
-                "Ask about edge cases and constraints",
-                "Mention time and space complexity",
-                "Draw diagrams if it helps explain",
-                "Test with simple examples first"
-            ],
+        const q = question.toLowerCase();
+        
+        // Smart coaching based on what they're actually being asked
+        if (mode === 'coding') {
+            if (q.includes('yourself') || q.includes('introduce')) {
+                return "Say: 'I'm a software engineer with X years of experience. My passion is solving complex problems efficiently. Recently I built [specific project] using [technologies].'";
+            }
+            if (q.includes('algorithm') || q.includes('data structure')) {
+                return "Start with: 'Let me think through this step by step.' Then explain your approach before coding. Ask about input constraints.";
+            }
+            if (q.includes('experience') || q.includes('project')) {
+                return "Use the STAR method: Situation, Task, Action, Result. Pick a project where you solved a real technical challenge with measurable impact.";
+            }
+            if (q.includes('weakness') || q.includes('improve')) {
+                return "Pick a real technical skill you're improving. Say: 'I'm strengthening my [specific skill] by [specific action]. For example...'";
+            }
+            if (q.includes('question') || q.includes('ask')) {
+                return "Ask: 'What's the biggest technical challenge the team is facing?' or 'How do you measure engineering success here?'";
+            }
+            // Fallback for coding
+            const codingAdvice = [
+                "Break the problem down into smaller steps",
+                "Ask about performance requirements and scale",
+                "Mention time complexity: O(n), O(log n), etc.",
+                "Test with edge cases: empty input, single element",
+                "Think out loud so they follow your reasoning",
+                "Ask clarifying questions about the requirements"
+            ];
+            return codingAdvice[Math.floor(Math.random() * codingAdvice.length)];
+        }
             iran: [
                 "Acknowledge the complexity of the situation",
                 "Show respect for all perspectives involved",
@@ -259,14 +290,32 @@ class VirgìlCoach {
                 "Suggest dialogue and understanding",
                 "Emphasize peaceful resolution"
             ],
-            hr: [
-                "Use the STAR method for behavioral questions",
-                "Show enthusiasm for the company mission",
-                "Ask thoughtful questions about growth",
-                "Highlight specific achievements with numbers",
-                "Demonstrate cultural fit",
-                "Express genuine interest in the role"
-            ],
+        if (mode === 'hr') {
+            if (q.includes('yourself') || q.includes('introduce')) {
+                return "Structure it: 'I'm [role] with [X years] experience in [industry]. I excel at [key skill]. I'm excited about this role because [specific reason].'";
+            }
+            if (q.includes('weakness')) {
+                return "Say: 'I used to struggle with [real weakness], but I've improved by [specific action]. For example, [brief story with result].'";
+            }
+            if (q.includes('strength')) {
+                return "Pick one strength with proof: 'My biggest strength is [skill]. For example, at [company] I [specific achievement with numbers].'";
+            }
+            if (q.includes('why') && (q.includes('company') || q.includes('role'))) {
+                return "Be specific: 'I'm excited about [specific product/mission]. Your focus on [company value] aligns with my experience in [relevant area].'";
+            }
+            if (q.includes('conflict') || q.includes('difficult')) {
+                return "Use STAR: 'I had a situation where [context]. I addressed it by [specific actions]. The result was [positive outcome].'";
+            }
+            // Fallback HR advice
+            const hrAdvice = [
+                "Back up every claim with a specific example",
+                "Show enthusiasm: 'I'm really excited about...'",
+                "Ask about growth: 'What does success look like in this role?'",
+                "Mention specific company achievements you admire",
+                "Use numbers: percentages, dollar amounts, timeframes"
+            ];
+            return hrAdvice[Math.floor(Math.random() * hrAdvice.length)];
+        }
             teacher: [
                 "Focus on student-centered learning approaches",
                 "Mention differentiated instruction strategies",
