@@ -336,121 +336,143 @@ class VirgilCoach {
 
     getMockAdvice(question, mode) {
         const q = question.toLowerCase();
-        let responseType = 'fallback'; // Track response type
-        let triggeredKeywords = []; // Track what keywords triggered smart response
         
-        // Smart coaching based on what they're actually being asked
-        if (mode === 'coding') {
-            if (q.includes('yourself') || q.includes('introduce')) {
-                responseType = 'smart';
-                triggeredKeywords = ['introduction'];
-                return this.formatSmartResponse("Say: 'I'm a software engineer with X years of experience. My passion is solving complex problems efficiently. Recently I built [specific project] using [technologies].'", responseType, triggeredKeywords);
-            }
-            if (q.includes('algorithm') || q.includes('data structure')) {
-                responseType = 'smart';
-                triggeredKeywords = ['algorithm/data structure'];
-                return this.formatSmartResponse("Start with: 'Let me think through this step by step.' Then explain your approach before coding. Ask about input constraints.", responseType, triggeredKeywords);
-            }
-            if (q.includes('experience') || q.includes('project')) {
-                responseType = 'smart';
-                triggeredKeywords = ['experience/project'];
-                return this.formatSmartResponse("Use the STAR method: Situation, Task, Action, Result. Pick a project where you solved a real technical challenge with measurable impact.", responseType, triggeredKeywords);
-            }
-            if (q.includes('weakness') || q.includes('improve')) {
-                return "Pick a real technical skill you're improving. Say: 'I'm strengthening my [specific skill] by [specific action]. For example...'";
-            }
-            if (q.includes('question') || q.includes('ask')) {
-                return "Ask: 'What's the biggest technical challenge the team is facing?' or 'How do you measure engineering success here?'";
-            }
-            // Fallback for coding
-            const codingAdvice = [
-                "Break the problem down into smaller steps",
-                "Ask about performance requirements and scale",
-                "Mention time complexity: O(n), O(log n), etc.",
-                "Test with edge cases: empty input, single element",
-                "Think out loud so they follow your reasoning",
-                "Ask clarifying questions about the requirements"
-            ];
-            return this.formatSmartResponse(codingAdvice[Math.floor(Math.random() * codingAdvice.length)], 'fallback', ['general']);
-        }
-        if (mode === 'political') {
-            if (q.includes('israel') || q.includes('palestine') || q.includes('gaza')) {
-                return "Acknowledge both sides' legitimate concerns. Say: 'This is a complex situation with valid perspectives. I believe in peaceful coexistence and dialogue.'";
-            }
-            if (q.includes('trump') || q.includes('biden') || q.includes('election')) {
-                return "Stay measured: 'I focus on policies rather than personalities. What matters most to me is [specific policy area] and evidence-based solutions.'";
-            }
-            if (q.includes('climate') || q.includes('environment')) {
-                return "Find common ground: 'I think we all want clean air and water for our kids. Let's focus on practical solutions that work economically too.'";
-            }
-            if (q.includes('immigration') || q.includes('border')) {
-                return "Be balanced: 'Immigration is complex. I support both border security and humane treatment. We need comprehensive reform that addresses root causes.'";
-            }
-            if (q.includes('healthcare') || q.includes('medical')) {
-                return "Focus on outcomes: 'Healthcare should be accessible and affordable. I'm interested in what actually works - looking at successful models worldwide.'";
-            }
-            // Fallback political advice
-            const politicalAdvice = [
-                "Ask: 'What specific outcomes are you hoping for?'",
-                "Find shared values: 'I think we both want what's best for families'",
-                "Redirect to policy: 'What policies do you think would help most?'",
-                "Acknowledge complexity: 'These issues have many layers to consider'",
-                "Suggest common ground: 'Where do you think we might agree?'",
-                "Stay curious: 'Help me understand your perspective better'"
-            ];
-            return politicalAdvice[Math.floor(Math.random() * politicalAdvice.length)];
-        }
-        if (mode === 'hr') {
-            if (q.includes('yourself') || q.includes('introduce')) {
-                return "Structure it: 'I'm [role] with [X years] experience in [industry]. I excel at [key skill]. I'm excited about this role because [specific reason].'";
-            }
-            if (q.includes('weakness')) {
-                responseType = 'smart';
-                triggeredKeywords = ['weakness'];
-                return this.formatSmartResponse("Say: 'I used to struggle with [real weakness], but I've improved by [specific action]. For example, [brief story with result].'", responseType, triggeredKeywords);
-            }
-            if (q.includes('strength')) {
-                return "Pick one strength with proof: 'My biggest strength is [skill]. For example, at [company] I [specific achievement with numbers].'";
-            }
-            if (q.includes('why') && (q.includes('company') || q.includes('role'))) {
-                return "Be specific: 'I'm excited about [specific product/mission]. Your focus on [company value] aligns with my experience in [relevant area].'";
-            }
-            if (q.includes('conflict') || q.includes('difficult')) {
-                return "Use STAR: 'I had a situation where [context]. I addressed it by [specific actions]. The result was [positive outcome].'";
-            }
-            // Fallback HR advice
-            const hrAdvice = [
-                "Back up every claim with a specific example",
-                "Show enthusiasm: 'I'm really excited about...'",
-                "Ask about growth: 'What does success look like in this role?'",
-                "Mention specific company achievements you admire",
-                "Use numbers: percentages, dollar amounts, timeframes"
-            ];
-            return hrAdvice[Math.floor(Math.random() * hrAdvice.length)];
-        }
+        // Extract key topics and analyze question structure
+        const analysis = this.analyzeQuestion(q, mode);
         
-        // Generic fallback advice for other modes
-        const advice = {
-            teacher: [
-                "Focus on student-centered learning approaches",
-                "Mention differentiated instruction strategies",
-                "Show passion for student growth",
-                "Discuss classroom management techniques",
-                "Highlight collaboration with parents",
-                "Emphasize continuous professional development"
-            ],
-            cyrano: [
-                "Compliment something specific and genuine",
-                "Use poetic language but stay authentic",
-                "Ask thoughtful questions about their interests",
-                "Share a meaningful personal story",
-                "Listen more than you speak",
-                "Let your sincerity shine through"
-            ]
+        // Generate contextually aware response based on actual question content  
+        return this.generateContextualResponse(question, analysis, mode);
+    }
+
+    analyzeQuestion(question, mode) {
+        const analysis = {
+            topics: [],
+            questionType: 'general',
+            intent: 'unknown',
+            specificity: 'low'
         };
 
-        const responses = advice[mode] || advice.hr;
-        return responses[Math.floor(Math.random() * responses.length)];
+        // Extract specific topics mentioned
+        const topicPatterns = {
+            // Technical topics
+            tech: ['algorithm', 'database', 'api', 'microservices', 'security', 'testing', 'performance', 'scalability', 'architecture', 'deployment', 'react', 'python', 'javascript', 'sql', 'cloud', 'docker', 'kubernetes', 'machine learning', 'ai', 'devops', 'agile'],
+            
+            // Business/HR topics
+            business: ['leadership', 'management', 'strategy', 'teamwork', 'communication', 'problem solving', 'decision making', 'project management', 'client relations', 'negotiation', 'time management', 'prioritization'],
+            
+            // Personal development
+            personal: ['strength', 'weakness', 'achievement', 'challenge', 'failure', 'learning', 'growth', 'motivation', 'goal', 'experience', 'skill', 'improvement'],
+            
+            // Situation-specific
+            situations: ['conflict', 'deadline', 'pressure', 'difficult customer', 'team disagreement', 'tight budget', 'technical debt', 'scope creep', 'changing requirements']
+        };
+
+        // Find mentioned topics
+        Object.entries(topicPatterns).forEach(([category, terms]) => {
+            terms.forEach(term => {
+                if (question.includes(term)) {
+                    analysis.topics.push({ term, category });
+                }
+            });
+        });
+
+        // Determine question type
+        if (question.includes('tell me about') || question.includes('describe') || question.includes('explain')) {
+            analysis.questionType = 'descriptive';
+        } else if (question.includes('how would you') || question.includes('what would you do')) {
+            analysis.questionType = 'scenario';
+        } else if (question.includes('why') || question.includes('what makes you')) {
+            analysis.questionType = 'reasoning';
+        } else if (question.includes('example') || question.includes('time when')) {
+            analysis.questionType = 'behavioral';
+        }
+
+        // Assess specificity
+        if (analysis.topics.length > 2) {
+            analysis.specificity = 'high';
+        } else if (analysis.topics.length > 0) {
+            analysis.specificity = 'medium';
+        }
+
+        return analysis;
+    }
+
+    generateContextualResponse(originalQuestion, analysis, mode) {
+        const q = originalQuestion.toLowerCase();
+        let responseType = 'smart';
+        let triggeredKeywords = analysis.topics.map(t => t.term);
+
+        // Generate highly specific responses based on actual question content
+        if (analysis.topics.length > 0) {
+            const primaryTopic = analysis.topics[0].term;
+            
+            if (mode === 'coding') {
+                return this.generateCodingResponse(q, primaryTopic, analysis, responseType, triggeredKeywords);
+            } else if (mode === 'hr') {
+                return this.generateHRResponse(q, primaryTopic, analysis, responseType, triggeredKeywords);
+            } else if (mode === 'political') {
+                return this.generatePoliticalResponse(q, primaryTopic, analysis, responseType, triggeredKeywords);
+            } else if (mode === 'teacher') {
+                return this.generateTeacherResponse(q, primaryTopic, analysis, responseType, triggeredKeywords);
+            } else if (mode === 'cyrano') {
+                return this.generateCyranoResponse(q, primaryTopic, analysis, responseType, triggeredKeywords);
+            }
+        }
+
+        // Fallback to mode-specific general advice only if no topics detected
+        return this.generateGeneralResponse(q, mode, 'fallback', ['general']);
+    }
+
+    generateCodingResponse(question, topic, analysis, responseType, keywords) {
+        if (question.includes('algorithm') || question.includes('data structure')) {
+            return this.formatSmartResponse(`For ${topic} problems: "Let me break this down systematically. I'll start with the simplest approach, then optimize. The key insight here is understanding the ${topic} characteristics and choosing the right data structure for efficiency."`, responseType, keywords);
+        }
+        if (question.includes('system design') || question.includes('architecture')) {
+            return this.formatSmartResponse(`For ${topic} design: "I'd start by clarifying the requirements and scale. Then design the high-level architecture, discuss data flow, identify bottlenecks, and plan for scalability. Key considerations for ${topic} include performance, reliability, and maintainability."`, responseType, keywords);
+        }
+        if (question.includes('debugging') || question.includes('troubleshoot')) {
+            return this.formatSmartResponse(`For ${topic} issues: "I'd approach this systematically - reproduce the issue, analyze logs, use debugging tools, and check recent changes. For ${topic} specifically, I'd focus on [common patterns] and verify [key assumptions]."`, responseType, keywords);
+        }
+        
+        return this.formatSmartResponse(`For this ${topic} question: "I'd approach this by understanding the core requirements, breaking down the problem, implementing a clean solution, and ensuring proper testing. With ${topic}, the key is [relevant technical principle]."`, responseType, keywords);
+    }
+
+    generateHRResponse(question, topic, analysis, responseType, keywords) {
+        if (analysis.questionType === 'behavioral') {
+            return this.formatSmartResponse(`For ${topic} situations: "I had a specific experience where ${topic} was crucial. The situation was [context], I took action by [specific steps], and the result was [measurable outcome]. This taught me the importance of [key learning]."`, responseType, keywords);
+        }
+        if (question.includes('strength') || question.includes('skill')) {
+            return this.formatSmartResponse(`Regarding ${topic}: "My strength in ${topic} comes from [specific experience]. For example, I successfully [concrete achievement] which resulted in [quantified impact]. I'm particularly effective at [specific aspect of topic]."`, responseType, keywords);
+        }
+        if (question.includes('challenge') || question.includes('difficult')) {
+            return this.formatSmartResponse(`With ${topic} challenges: "I faced a situation involving ${topic} where [specific context]. I addressed it by [detailed approach], collaborated with [stakeholders], and achieved [specific result]. The key was [strategic insight]."`, responseType, keywords);
+        }
+        
+        return this.formatSmartResponse(`About ${topic}: "I have solid experience with ${topic} from [relevant context]. What excites me is how ${topic} directly impacts [business value]. I'm particularly skilled at [specific application] and eager to apply this expertise here."`, responseType, keywords);
+    }
+
+    generatePoliticalResponse(question, topic, analysis, responseType, keywords) {
+        return this.formatSmartResponse(`On ${topic}: "This is a nuanced issue that affects many people. I believe we need thoughtful policy on ${topic} that considers [stakeholder perspective], balances [competing interests], and focuses on [practical outcomes]. What's your experience with this issue?"`, responseType, keywords);
+    }
+
+    generateTeacherResponse(question, topic, analysis, responseType, keywords) {
+        return this.formatSmartResponse(`For ${topic} in education: "I use evidence-based approaches to ${topic}, focusing on student engagement and measurable outcomes. My strategy involves [pedagogical method], differentiated instruction, and regular assessment. With ${topic}, I've seen great success when [specific technique]."`, responseType, keywords);
+    }
+
+    generateCyranoResponse(question, topic, analysis, responseType, keywords) {
+        return this.formatSmartResponse(`About ${topic}: "I find ${topic} fascinating because [genuine insight]. There's something beautiful about how ${topic} [thoughtful observation]. I'd love to know what draws you to ${topic} - your perspective would enrich my understanding."`, responseType, keywords);
+    }
+
+    generateGeneralResponse(question, mode, responseType, keywords) {
+        const generalAdvice = {
+            coding: "Think through the problem step by step, ask clarifying questions, and explain your reasoning as you go.",
+            hr: "Use specific examples with measurable results, show enthusiasm for the role, and ask thoughtful questions.",
+            political: "Listen actively, find common ground, and focus on shared values and practical solutions.",
+            teacher: "Emphasize student-centered learning, show passion for education, and discuss measurable outcomes.",
+            cyrano: "Be genuine and thoughtful, ask meaningful questions, and show sincere interest in their perspective."
+        };
+        
+        return this.formatSmartResponse(generalAdvice[mode] || generalAdvice.hr, responseType, keywords);
     }
 
     getRecentContext() {
