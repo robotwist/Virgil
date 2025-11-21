@@ -5,9 +5,12 @@ import './App.css';
 
 // Components
 import InputBox from './components/InputBox';
+import TranslateBox from './components/TranslateBox';
+import CalculatorBox from './components/CalculatorBox';
 import Login from './components/Login';
 import AdminDashboard from './components/AdminDashboard';
 import Header from './components/Header';
+import PrivacyControls from './components/PrivacyControls';
 // Commenting out the voice interface import for now
 // import VoiceInterfaceTest from './components/VoiceInterfaceTest';
 
@@ -20,6 +23,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 // Axios timeout (ms)
 const REQUEST_TIMEOUT = 120000; // 2 minutes
 
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
@@ -30,8 +34,61 @@ function App() {
   const [lastResponse, setLastResponse] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionId, setSessionId] = useState('');
-
+  const [reminders, setReminders] = useState([]);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsError, setWsError] = useState('');
+  const wsRef = useRef(null);
+    // WebSocket notification connection
+    useEffect(() => {
+      const userId = sessionId || 'guest';
+      const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/^http/, 'ws') + `/ws/notify/${userId}`;
+      let ws;
+      function connect() {
+        ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+        ws.onopen = () => setWsConnected(true);
+        ws.onclose = () => {
+          setWsConnected(false);
+          setTimeout(connect, 5000); // Reconnect after 5s
+        };
+        ws.onerror = () => setWsError('WebSocket error');
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'notification' && data.message) {
+              setMessages(prev => [...prev, { type: 'assistant', content: data.message, timestamp: new Date().toISOString() }]);
+            }
+          } catch {}
+        };
+      }
+      connect();
+      return () => { ws && ws.close(); };
+    }, [sessionId]);
   const messagesEndRef = useRef(null);
+
+  // Poll for reminders every 10 seconds
+  useEffect(() => {
+    const pollReminders = async () => {
+      try {
+        const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/reminders');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.reminders && data.reminders.length > 0) {
+            setReminders(prev => [...prev, ...data.reminders]);
+            // Also add to chat messages as proactive assistant messages
+            setMessages(prevMessages => [
+              ...prevMessages,
+              ...data.reminders.map(r => ({ type: 'assistant', content: `⏰ Reminder: ${r.message}`, timestamp: new Date().toISOString() }))
+            ]);
+          }
+        }
+      } catch (e) {
+        // Ignore polling errors
+      }
+    };
+    const interval = setInterval(pollReminders, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Check authentication on initial load
   useEffect(() => {
@@ -232,8 +289,9 @@ function App() {
             </div>
           )}
         </div>
-        
         <div className="controls-container">
+          {wsError && <div className="ws-error">{wsError}</div>}
+          {wsConnected && <div className="ws-status">🔔 Real-time notifications enabled</div>}
           {messages.length > 0 && (
             <button 
               className="clear-button" 
@@ -243,7 +301,6 @@ function App() {
               Clear Chat
             </button>
           )}
-          
           <InputBox 
             sendMessage={sendMessage} 
             isLoading={isLoading}
@@ -252,6 +309,9 @@ function App() {
             setTone={setTone}
             lastResponse={lastResponse}
           />
+          <TranslateBox />
+          <CalculatorBox />
+          <PrivacyControls />
         </div>
       </div>
     </div>

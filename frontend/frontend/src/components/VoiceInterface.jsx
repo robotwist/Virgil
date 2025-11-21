@@ -8,6 +8,9 @@ const WS_URL = API_URL.replace(/^http/, 'ws');
 
 const VoiceInterface = ({ onSendMessage, isProcessing, lastResponse }) => {
   const [isRecording, setIsRecording] = useState(false);
+  const [isSpeechRecognition, setIsSpeechRecognition] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const speechRecognitionRef = useRef(null);
   const [transcript, setTranscript] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
@@ -26,6 +29,40 @@ const VoiceInterface = ({ onSendMessage, isProcessing, lastResponse }) => {
   const audioDataArray = useRef(null);
   const audioStreamRef = useRef(null);
   const audioElRef = useRef(null);
+  const ttsUtteranceRef = useRef(null);
+    // Speak text using browser TTS
+    const speakText = (text) => {
+      if (!window.speechSynthesis) {
+        setErrorMessage('Text-to-speech not supported in this browser.');
+        return;
+      }
+      if (ttsUtteranceRef.current) {
+        window.speechSynthesis.cancel();
+        ttsUtteranceRef.current = null;
+      }
+      const utterance = new window.SpeechSynthesisUtterance(text);
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        ttsUtteranceRef.current = null;
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        setErrorMessage('Error with text-to-speech.');
+        ttsUtteranceRef.current = null;
+      };
+      ttsUtteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    };
+
+    // Stop browser TTS
+    const stopTTS = () => {
+      if (window.speechSynthesis && ttsUtteranceRef.current) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        ttsUtteranceRef.current = null;
+      }
+    };
   
   // Check if browser supports required APIs
   useEffect(() => {
@@ -35,19 +72,20 @@ const VoiceInterface = ({ onSendMessage, isProcessing, lastResponse }) => {
       window.MediaRecorder &&
       window.AudioContext
     );
-    
-    setBrowserSupported(isSupported);
+    // Check for Web Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    setSpeechSupported(!!SpeechRecognition);
+    setBrowserSupported(isSupported || !!SpeechRecognition);
     setCapabilitiesChecked(true);
-    
-    if (!isSupported) {
+    if (!isSupported && !SpeechRecognition) {
       setErrorMessage('Your browser does not support the required audio features.');
       return;
     }
-    
     // Initialize audio context
     try {
-      audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
-      
+      if (isSupported) {
+        audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
       // Create an audio element for playback
       if (!audioElRef.current) {
         audioElRef.current = new Audio();
@@ -59,25 +97,18 @@ const VoiceInterface = ({ onSendMessage, isProcessing, lastResponse }) => {
           setErrorMessage('Error playing audio response');
         };
       }
-      
       // Check if WebSocket is supported
-      if (!window.WebSocket) {
-        setErrorMessage('Your browser does not support WebSockets, required for voice interaction.');
-        return;
+      if (isSupported && window.WebSocket) {
+        connectWebSocket();
       }
-      
-      // Try to connect WebSocket
-      connectWebSocket();
     } catch (e) {
       console.error('Error initializing audio systems:', e);
       setErrorMessage('Could not initialize audio systems: ' + e.message);
     }
-    
     return () => {
       // Cleanup on unmount
       disconnectWebSocket();
       cleanupAudio();
-      
       if (audioContext.current && audioContext.current.state !== 'closed') {
         audioContext.current.close();
       }
@@ -216,84 +247,115 @@ const VoiceInterface = ({ onSendMessage, isProcessing, lastResponse }) => {
     }
   };
   
-  // Start recording audio
+  // Start recording audio or speech recognition
   const startRecording = async () => {
-    if (isRecording || !isConnected) return;
-    
-    try {
-      setErrorMessage('');
-      
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioStreamRef.current = stream;
-      
-      // Set up audio analyzer for visualization
-      const source = audioContext.current.createMediaStreamSource(stream);
-      audioAnalyser.current = audioContext.current.createAnalyser();
-      audioAnalyser.current.fftSize = 256;
-      source.connect(audioAnalyser.current);
-      
-      audioDataArray.current = new Uint8Array(audioAnalyser.current.frequencyBinCount);
-      updateAudioVisualization();
-      
-      // Create media recorder
-      mediaRecorder.current = new MediaRecorder(stream);
-      audioChunks.current = [];
-      
-      mediaRecorder.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.current.push(event.data);
-        }
-      };
-      
-      mediaRecorder.current.onstop = async () => {
-        // Create audio blob from chunks
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
-        
-        // Send audio data to WebSocket if connected
-        if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-          try {
-            const arrayBuffer = await audioBlob.arrayBuffer();
-            websocket.current.send(arrayBuffer);
-          } catch (error) {
-            console.error('Error sending audio data:', error);
-            setErrorMessage('Error sending voice data.');
+    setErrorMessage('');
+    // Prefer WebSocket/MediaRecorder if available and connected
+    if (isConnected && browserSupported) {
+      if (isRecording) return;
+      try {
+        // Request microphone access
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioStreamRef.current = stream;
+        // Set up audio analyzer for visualization
+        const source = audioContext.current.createMediaStreamSource(stream);
+        audioAnalyser.current = audioContext.current.createAnalyser();
+        audioAnalyser.current.fftSize = 256;
+        source.connect(audioAnalyser.current);
+        audioDataArray.current = new Uint8Array(audioAnalyser.current.frequencyBinCount);
+        updateAudioVisualization();
+        // Create media recorder
+        mediaRecorder.current = new MediaRecorder(stream);
+        audioChunks.current = [];
+        mediaRecorder.current.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunks.current.push(event.data);
           }
+        };
+        mediaRecorder.current.onstop = async () => {
+          // Create audio blob from chunks
+          const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
+          // Send audio data to WebSocket if connected
+          if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+            try {
+              const arrayBuffer = await audioBlob.arrayBuffer();
+              websocket.current.send(arrayBuffer);
+            } catch (error) {
+              console.error('Error sending audio data:', error);
+              setErrorMessage('Error sending voice data.');
+            }
+          } else {
+            setErrorMessage('Voice service connection lost. Please try again.');
+            connectWebSocket();
+          }
+          // Clean up audio resources
+          cleanupAudio();
+        };
+        // Start recording
+        mediaRecorder.current.start();
+        setIsRecording(true);
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        if (error.name === 'NotAllowedError') {
+          setErrorMessage('Microphone access denied. Please allow microphone access and try again.');
         } else {
-          setErrorMessage('Voice service connection lost. Please try again.');
-          connectWebSocket();
+          setErrorMessage('Could not start recording: ' + error.message);
         }
-        
-        // Clean up audio resources
         cleanupAudio();
-      };
-      
-      // Start recording
-      mediaRecorder.current.start();
-      setIsRecording(true);
-      
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      
-      if (error.name === 'NotAllowedError') {
-        setErrorMessage('Microphone access denied. Please allow microphone access and try again.');
-      } else {
-        setErrorMessage('Could not start recording: ' + error.message);
       }
-      
-      cleanupAudio();
+    } else if (speechSupported) {
+      // Use browser speech recognition as fallback
+      if (isSpeechRecognition) return;
+      try {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          setErrorMessage('Speech recognition not supported in this browser.');
+          return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        recognition.onstart = () => {
+          setIsSpeechRecognition(true);
+        };
+        recognition.onerror = (event) => {
+          setErrorMessage('Speech recognition error: ' + event.error);
+          setIsSpeechRecognition(false);
+        };
+        recognition.onend = () => {
+          setIsSpeechRecognition(false);
+        };
+        recognition.onresult = (event) => {
+          const result = event.results[0][0].transcript;
+          setTranscript(result);
+          if (onSendMessage) {
+            onSendMessage(result);
+          }
+          setIsSpeechRecognition(false);
+        };
+        speechRecognitionRef.current = recognition;
+        recognition.start();
+      } catch (error) {
+        setErrorMessage('Could not start speech recognition: ' + error.message);
+      }
+    } else {
+      setErrorMessage('No supported voice input method available.');
     }
   };
   
-  // Stop recording
+  // Stop recording or speech recognition
   const stopRecording = () => {
-    if (!isRecording) return;
-    
-    if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
-      mediaRecorder.current.stop();
+    if (isRecording) {
+      if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+        mediaRecorder.current.stop();
+      }
+      setIsRecording(false);
     }
-    
-    setIsRecording(false);
+    if (isSpeechRecognition && speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop();
+      setIsSpeechRecognition(false);
+    }
   };
   
   // Update audio visualization
@@ -403,17 +465,22 @@ const VoiceInterface = ({ onSendMessage, isProcessing, lastResponse }) => {
       
       <div className="voice-controls">
         <button 
-          className={`voice-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'disabled' : ''}`}
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={isProcessing || !isConnected || isSpeaking}
+          className={`voice-button ${(isRecording || isSpeechRecognition) ? 'recording' : ''} ${isSpeaking ? 'disabled' : ''}`}
+          onClick={(isRecording || isSpeechRecognition) ? stopRecording : startRecording}
+          disabled={isProcessing || isSpeaking}
         >
-          {isRecording ? 'Stop' : 'Speak'}
+          {(isRecording || isSpeechRecognition) ? 'Stop' : 'Speak'}
           <span className="voice-icon">🎤</span>
         </button>
         
         {isSpeaking && (
-          <button className="stop-button" onClick={stopSpeaking}>
+          <button className="stop-button" onClick={() => { stopSpeaking(); stopTTS(); }}>
             Stop Audio
+          </button>
+        )}
+        {!isSpeaking && lastResponse && (
+          <button className="tts-button" onClick={() => speakText(lastResponse)}>
+            Read Aloud
           </button>
         )}
       </div>

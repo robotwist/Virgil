@@ -1,3 +1,18 @@
+# Privacy & User Data Controls
+
+Virgil is designed with privacy and user control in mind:
+
+- **Local Processing:** In local mode, all AI and data processing happens on your device. No audio or message data is sent to third parties.
+- **No Third-Party Data Sharing:** Conversation and reminder data are never shared or sold.
+- **User Data Access:**
+   - You can retrieve your full conversation history via the `/history` endpoint.
+   - You can delete all your data (conversations and reminders) via the `/user-data` endpoint (HTTP DELETE).
+- **Frontend Storage:** The web app stores session and message history in your browser’s localStorage for convenience. You can clear this at any time from your browser settings or via the app’s “Clear Conversation” feature.
+- **Analytics:** Only anonymized, non-content usage metrics are collected (if enabled). No message or audio content is logged for analytics.
+- **Microphone & Permissions:** Microphone access is only requested when using voice features. No audio is stored permanently.
+- **Offline & PWA:** The PWA can run fully offline. No data leaves your device unless you explicitly use cloud features.
+
+**To request data deletion or review privacy practices, contact the project maintainer or use the provided API endpoints.**
 # 🧭 VIRGIL — AI-Powered Real-Time Guide (Open Source Version)
 
 Virgil is your whisper-in-the-ear guide—an AI-powered companion that helps you move through high-stakes work and life moments with clarity, confidence, and grace.

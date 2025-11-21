@@ -3,6 +3,31 @@ import '../styles/InputBox.css';
 import ToneSelector from './ToneSelector';
 
 const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastResponse }) => {
+        const [reminderText, setReminderText] = useState('');
+        const [reminderTime, setReminderTime] = useState('');
+        const [reminderStatus, setReminderStatus] = useState('');
+        // Schedule a reminder
+        const handleScheduleReminder = async () => {
+            if (!reminderText.trim() || !reminderTime) return;
+            setReminderStatus('Scheduling...');
+            try {
+                const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/reminder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: reminderText, remind_at: reminderTime })
+                });
+                if (res.ok) {
+                    setReminderStatus('Reminder scheduled!');
+                    setReminderText('');
+                    setReminderTime('');
+                } else {
+                    setReminderStatus('Failed to schedule reminder.');
+                }
+            } catch (e) {
+                setReminderStatus('Error scheduling reminder.');
+            }
+            setTimeout(() => setReminderStatus(''), 3000);
+        };
     const [input, setInput] = useState('');
     const [rows, setRows] = useState(1);
     const [sessionId, setSessionId] = useState(null);
@@ -86,9 +111,7 @@ const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastRespons
                         </button>
                     )}
                 </div>
-                
                 {responseTime > 0 && <div className="response-time">Response time: {responseTime.toFixed(2)}s</div>}
-                
                 <div className="input-area">
                     <textarea
                         ref={textareaRef}
@@ -99,7 +122,6 @@ const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastRespons
                         rows={rows}
                         disabled={isLoading}
                     />
-                    
                     <div className="input-buttons">
                         <button
                             className={`send-button ${isLoading ? 'disabled' : ''} ${!input.trim() ? 'empty' : ''}`}
@@ -113,6 +135,30 @@ const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastRespons
                             )}
                         </button>
                     </div>
+                </div>
+                {/* Reminder scheduling UI */}
+                <div className="reminder-scheduler">
+                    <input
+                        type="text"
+                        placeholder="Reminder message..."
+                        value={reminderText}
+                        onChange={e => setReminderText(e.target.value)}
+                        disabled={isLoading}
+                    />
+                    <input
+                        type="datetime-local"
+                        value={reminderTime}
+                        onChange={e => setReminderTime(e.target.value)}
+                        disabled={isLoading}
+                    />
+                    <button
+                        className="reminder-button"
+                        onClick={handleScheduleReminder}
+                        disabled={isLoading || !reminderText.trim() || !reminderTime}
+                    >
+                        Set Reminder
+                    </button>
+                    {reminderStatus && <span className="reminder-status">{reminderStatus}</span>}
                 </div>
             </div>
         </div>

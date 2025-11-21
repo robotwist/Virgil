@@ -1,19 +1,200 @@
-from fastapi import FastAPI, Request, Response, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
+# --- USER DATA ENDPOINTS ---
+# Get full conversation history for a user/session
+from fastapi.responses import JSONResponse
+
+@app.get("/history")
+async def get_conversation_history(request: Request):
+    user_id = get_user_id(request)
+    db = next(get_db())
+    history_db = db.query(Conversation).filter_by(user_id=user_id).order_by(Conversation.timestamp.asc()).all()
+    history = [
+        {
+            "id": h.id,
+            "user_id": h.user_id,
+            "message": h.message,
+            "response": h.response,
+            "timestamp": h.timestamp.isoformat()
+        }
+        for h in history_db
+    ]
+    return {"history": history}
+
+# Delete all user data (conversation + reminders)
+@app.delete("/user-data")
+async def delete_user_data(request: Request):
+    user_id = get_user_id(request)
+    db = next(get_db())
+    # Delete conversations
+    db.query(Conversation).filter_by(user_id=user_id).delete()
+    # Delete reminders
+    db.query(PersistentReminder).filter_by(user_id=user_id).delete()
+    db.commit()
+    return JSONResponse({"status": "deleted", "user_id": user_id})
+
+# --- ALL IMPORTS AT TOP ---
 import os
 import httpx
-from typing import Dict, Any, List, Optional
 import json
 import time
 import logging
 import random
 import uuid
+import math
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta
+from fastapi import FastAPI, Request, Response, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+# --- APP INIT ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+app = FastAPI()
+
+# --- DB SETUP ---
+SQLALCHEMY_DATABASE_URL = os.getenv("VIRGIL_DB_URL", "sqlite:///./virgil_memory.db")
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    message = Column(Text)
+    response = Column(Text)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+class PersistentReminder(Base):
+    __tablename__ = "reminders"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    message = Column(Text)
+    remind_at = Column(DateTime)
+    delivered = Column(Boolean, default=False)
+
+Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# --- CORS & ENV ---
+frontend_url = os.getenv("FRONTEND_URL", "https://virgil-ai-assistant.netlify.app")
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+default_origins = [frontend_url, "https://virgil-ai-assistant.netlify.app"]
+cors_origins = cors_origins_env.split(",") if cors_origins_env else default_origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- GLOBALS ---
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
+HTTP_CLIENT = httpx.AsyncClient(timeout=120.0)
+CONVERSATION_HISTORY = {}
+MAX_HISTORY_LENGTH = 10
+
+# --- UTILS ---
+def get_user_id(request: Request) -> str:
+    return request.headers.get('X-User-Id') or request.client.host or 'guest'
+
+def cleanup_reminders_db(db, user_id):
+    db.query(PersistentReminder).filter_by(user_id=user_id, delivered=True).delete()
+    db.commit()
+
+# --- ENDPOINTS ---
+
+# Complex calculation endpoint
+@app.post("/calculate")
+async def calculate(request: Request):
+    data = await request.json()
+    expr = data.get('expression')
+    if not expr:
+        raise HTTPException(status_code=400, detail="Missing expression")
+    allowed_names = {k: v for k, v in math.__dict__.items() if not k.startswith("__")}
+    allowed_names['abs'] = abs
+    allowed_names['round'] = round
+    try:
+        result = eval(expr, {"__builtins__": {}}, allowed_names)
+        return {"result": result}
+    except Exception as e:
+        logger.error(f"Calculation error: {e}")
+        raise HTTPException(status_code=400, detail=f"Calculation error: {e}")
+
+# Real-time translation endpoint
+LIBRETRANSLATE_URL = os.getenv("LIBRETRANSLATE_URL", "https://libretranslate.de/translate")
+LIBRETRANSLATE_API_KEY = os.getenv("LIBRETRANSLATE_API_KEY", "")
+@app.post("/translate")
+async def translate_text(request: Request):
+    data = await request.json()
+    text = data.get('text')
+    source = data.get('source', 'auto')
+    target = data.get('target', 'en')
+    if not text or not target:
+        raise HTTPException(status_code=400, detail="Missing text or target language")
+    payload = {
+        "q": text,
+        "source": source,
+        "target": target,
+        "format": "text"
+    }
+    if LIBRETRANSLATE_API_KEY:
+        payload["api_key"] = LIBRETRANSLATE_API_KEY
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(LIBRETRANSLATE_URL, json=payload)
+            resp.raise_for_status()
+            result = resp.json()
+            return {"translated": result.get("translatedText", "")}
+    except Exception as e:
+        logger.error(f"Translation error: {e}")
+        raise HTTPException(status_code=500, detail="Translation service error")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+# SQLite setup for persistent memory
+SQLALCHEMY_DATABASE_URL = os.getenv("VIRGIL_DB_URL", "sqlite:///./virgil_memory.db")
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    message = Column(Text)
+    response = Column(Text)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+class PersistentReminder(Base):
+    __tablename__ = "reminders"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    message = Column(Text)
+    remind_at = Column(DateTime)
+    delivered = Column(Boolean, default=False)
+
+Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Get frontend and backend URLs from environment variables or use defaults
 frontend_url = os.getenv("FRONTEND_URL", "https://virgil-ai-assistant.netlify.app")
@@ -35,9 +216,67 @@ HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mix
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 HTTP_CLIENT = httpx.AsyncClient(timeout=120.0)  # Longer timeout for model inference
 
-# Track ongoing conversations
-CONVERSATION_HISTORY = {}
-MAX_HISTORY_LENGTH = 10  # Maximum number of message pairs to store
+
+CONVERSATION_HISTORY = {}  # Still used for fast access, but now also persist
+MAX_HISTORY_LENGTH = 10
+from datetime import datetime, timedelta
+def get_user_id(request: Request) -> str:
+    # For demo, use session or IP. In production, use auth.
+    return request.headers.get('X-User-Id') or request.client.host or 'guest'
+
+
+# Helper to clean up delivered reminders in DB
+def cleanup_reminders_db(db, user_id):
+    db.query(PersistentReminder).filter_by(user_id=user_id, delivered=True).delete()
+    db.commit()
+
+
+# Endpoint to schedule a reminder (persistent)
+@app.post("/reminder")
+async def schedule_reminder(request: Request):
+    data = await request.json()
+    message = data.get('message')
+    remind_at = data.get('remind_at')  # ISO8601 string
+    if not message or not remind_at:
+        raise HTTPException(status_code=400, detail="Missing message or remind_at")
+    try:
+        remind_time = datetime.fromisoformat(remind_at)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid remind_at format")
+    user_id = get_user_id(request)
+    db = next(get_db())
+    reminder = PersistentReminder(user_id=user_id, message=message, remind_at=remind_time, delivered=False)
+    db.add(reminder)
+    db.commit()
+    db.refresh(reminder)
+    return {"status": "scheduled", "reminder": {
+        'id': reminder.id,
+        'message': reminder.message,
+        'remind_at': reminder.remind_at.isoformat(),
+        'delivered': reminder.delivered
+    }}
+
+
+# Endpoint to fetch due reminders (persistent)
+@app.get("/reminders")
+async def get_due_reminders(request: Request):
+    user_id = get_user_id(request)
+    now = datetime.utcnow()
+    db = next(get_db())
+    due = db.query(PersistentReminder).filter_by(user_id=user_id, delivered=False).filter(PersistentReminder.remind_at <= now).all()
+    reminders_out = []
+    for r in due:
+        reminders_out.append({
+            'id': r.id,
+            'message': r.message,
+            'remind_at': r.remind_at.isoformat(),
+            'delivered': r.delivered
+        })
+        r.delivered = True
+    db.commit()
+    cleanup_reminders_db(db, user_id)
+    return {"reminders": reminders_out}
+
 
 # Pre-defined responses for fallback
 FALLBACK_RESPONSES = [
@@ -76,34 +315,37 @@ async def root():
         "docs": "/docs"
     }
 
-@app.get("/health")
-async def health():
-    """Health check endpoint"""
-    return {"status": "ok"}
 
-@app.get("/tones")
-async def get_tones():
-    """Return available conversation tones"""
-    return {
-        "tones": [
-            {"id": "default", "name": "Default", "description": "Standard assistant mode"},
-            {"id": "friendly", "name": "Friendly", "description": "Warm and approachable tone"},
-            {"id": "professional", "name": "Professional", "description": "Formal and precise tone"}
-        ]
-    }
-
-def get_previous_messages(session_id):
-    """Get previous messages for a session."""
-    return CONVERSATION_HISTORY.get(session_id, [])
-
-def append_message(session_id, message):
-    """Append a message to the conversation history."""
-    if session_id not in CONVERSATION_HISTORY:
-        CONVERSATION_HISTORY[session_id] = []
-    
-    CONVERSATION_HISTORY[session_id].append(message)
-    
-    # Trim history if it gets too long
+@app.post("/guide")
+async def guide(request: Request):
+    data = await request.json()
+    message = data.get("message")
+    session_id = data.get("session_id", "default")
+    tone = data.get("tone", "default")
+    username = data.get("username", "guest")
+    if not message:
+        raise HTTPException(status_code=400, detail="Missing message")
+    # Retrieve conversation history for context (from DB)
+    db = next(get_db())
+    history_db = db.query(Conversation).filter_by(user_id=session_id).order_by(Conversation.timestamp.desc()).limit(MAX_HISTORY_LENGTH).all()
+    history = [{"user": h.message, "assistant": h.response} for h in reversed(history_db)]
+    # Compose prompt
+    prompt = get_system_prompt(tone)
+    # Add history to prompt
+    context = "\n".join([f"User: {h['user']}\nVirgil: {h['assistant']}" for h in history])
+    full_prompt = f"{prompt}\n{context}\nUser: {message}\nVirgil:"
+    # Call LLM (simulate with fallback if needed)
+    reply = await call_llm(full_prompt, message)
+    # Save to history (in-memory for fast access)
+    history_mem = CONVERSATION_HISTORY.get(session_id, [])
+    history_mem.append({"user": message, "assistant": reply})
+    if len(history_mem) > MAX_HISTORY_LENGTH:
+        history_mem = history_mem[-MAX_HISTORY_LENGTH:]
+    CONVERSATION_HISTORY[session_id] = history_mem
+    # Save to persistent DB
+    db.add(Conversation(user_id=session_id, message=message, response=reply))
+    db.commit()
+    return {"reply": reply, "session_id": session_id, "response_time": 0.5}
     if len(CONVERSATION_HISTORY[session_id]) > MAX_HISTORY_LENGTH * 2:  # * 2 for user + assistant pairs
         CONVERSATION_HISTORY[session_id] = CONVERSATION_HISTORY[session_id][-MAX_HISTORY_LENGTH * 2:]
 
