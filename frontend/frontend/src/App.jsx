@@ -254,6 +254,8 @@ function App() {
   };
 
   // Main chat interface
+  // Advanced tools menu
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const ChatInterface = () => (
     <div className="App">
       <img src="/virgil_logo.png" alt="Virgil Logo" className="App-logo" />
@@ -309,9 +311,16 @@ function App() {
             setTone={setTone}
             lastResponse={lastResponse}
           />
-          <TranslateBox />
-          <CalculatorBox />
-          <PrivacyControls />
+          <button onClick={() => setShowAdvanced(v => !v)} style={{marginTop: 8, marginBottom: 4, width: '100%', background: '#f3f4f6', border: 'none', borderRadius: 4, fontWeight: 600}}>
+            {showAdvanced ? '▼' : '▶'} More Tools
+          </button>
+          {showAdvanced && (
+            <div style={{marginTop: 4}}>
+              <TranslateBox />
+              <CalculatorBox />
+              <PrivacyControls />
+            </div>
+          )}
         </div>
       </div>
     </div>
