@@ -85,13 +85,15 @@ def get_db():
         db.close()
 
 # --- CORS & ENV ---
-frontend_url = os.getenv("FRONTEND_URL", "https://virgil-ai-assistant.netlify.app")
-cors_origins_env = os.getenv("CORS_ORIGINS", "")
-default_origins = [frontend_url, "https://virgil-ai-assistant.netlify.app"]
-cors_origins = cors_origins_env.split(",") if cors_origins_env else default_origins
+
+# --- CORS & ENV ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=[
+        "https://virgil-ai-assistant.netlify.app",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
