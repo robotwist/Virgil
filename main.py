@@ -130,6 +130,14 @@ async def translate_text(request: Request):
         logger.error(f"Translation error: {e}")
         raise HTTPException(status_code=500, detail="Translation service error")
 
+
+@app.get("/tones")
+async def get_tones():
+    """Return available conversation tones/modes for the frontend tone selector."""
+    # For frontend compatibility return a simple list of tone ids (strings)
+    tones = ["default", "friendly", "professional"]
+    return {"tones": tones}
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -269,7 +277,21 @@ async def get_conversation_history(request: Request):
 
 @app.delete("/user-data")
 async def delete_user_data(request: Request):
-    user_id = get_user_id(request)
+    # Safety checks: require explicit user identity and explicit confirmation
+    explicit_user = request.headers.get("X-User-Id")
+    if not explicit_user:
+        # reject anonymous requests to a destructive endpoint
+        return JSONResponse({"error": "Authentication required. Provide X-User-Id header."}, status_code=401)
+
+    # Require an explicit confirmation header or query param to prevent accidental deletes
+    confirm_header = request.headers.get("X-Confirm-Delete", "false").lower()
+    confirm_query = request.query_params.get("confirm", "false").lower()
+    if confirm_header != "true" and confirm_query != "true":
+        return JSONResponse({
+            "error": "Delete not confirmed. Include header X-Confirm-Delete: true or ?confirm=true to proceed."
+        }, status_code=400)
+
+    user_id = explicit_user
     db = next(get_db())
     # Delete conversations
     db.query(Conversation).filter_by(user_id=user_id).delete()
