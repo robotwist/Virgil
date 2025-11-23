@@ -335,8 +335,7 @@ async def ws_notify(websocket: WebSocket, user_id: str):
     #  - query param token with valid token
     #  - X-User-Id header equals the path user_id (backwards-compatible)
     # Fallback: allow guest connections but note they are unauthenticated.
-    try:
-        token = None
+    token = None
         # WebSocket headers are available under websocket.headers
         auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
