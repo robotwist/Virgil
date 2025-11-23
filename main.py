@@ -10,6 +10,7 @@ import math
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Response, HTTPException, Depends, WebSocket, WebSocketDisconnect
+import asyncio
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean
@@ -21,36 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = FastAPI()
 
-# --- DB SETUP ---
-SQLALCHEMY_DATABASE_URL = os.getenv("VIRGIL_DB_URL", "sqlite:///./virgil_memory.db")
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-class Conversation(Base):
-    __tablename__ = "conversations"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, index=True)
-    message = Column(Text)
-    response = Column(Text)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-class PersistentReminder(Base):
-    __tablename__ = "reminders"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, index=True)
-    message = Column(Text)
-    remind_at = Column(DateTime)
-    delivered = Column(Boolean, default=False)
-
-Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# (Database setup and models are defined later in the file)
 
 # --- CORS & ENV ---
 
@@ -74,13 +46,54 @@ HTTP_CLIENT = httpx.AsyncClient(timeout=120.0)
 CONVERSATION_HISTORY = {}
 MAX_HISTORY_LENGTH = 10
 
-# --- UTILS ---
-def get_user_id(request: Request) -> str:
-    return request.headers.get('X-User-Id') or request.client.host or 'guest'
+# Connection manager for real-time notifications
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, WebSocket] = {}
+        self.lock = asyncio.Lock()
 
-def cleanup_reminders_db(db, user_id):
-    db.query(PersistentReminder).filter_by(user_id=user_id, delivered=True).delete()
-    db.commit()
+    async def connect(self, user_id: str, websocket: WebSocket):
+        await websocket.accept()
+        async with self.lock:
+            self.active_connections[user_id] = websocket
+
+    async def disconnect(self, user_id: str):
+        async with self.lock:
+            if user_id in self.active_connections:
+                try:
+                    await self.active_connections[user_id].close()
+                except Exception:
+                    pass
+                del self.active_connections[user_id]
+
+    async def send_personal_message(self, user_id: str, message: str):
+        async with self.lock:
+            ws = self.active_connections.get(user_id)
+            if not ws:
+                return False
+            try:
+                await ws.send_text(message)
+                return True
+            except Exception:
+                # If sending fails, remove the stale connection
+                del self.active_connections[user_id]
+                return False
+
+    async def broadcast(self, message: str):
+        async with self.lock:
+            for uid, ws in list(self.active_connections.items()):
+                try:
+                    await ws.send_text(message)
+                except Exception:
+                    del self.active_connections[uid]
+
+manager = ConnectionManager()
+
+# Background task handle
+_background_tasks = []
+
+# --- UTILS ---
+# (get_user_id and cleanup_reminders_db are defined once later in the file)
 
 # --- ENDPOINTS ---
 
@@ -254,6 +267,80 @@ async def get_due_reminders(request: Request):
     db.commit()
     cleanup_reminders_db(db, user_id)
     return {"reminders": reminders_out}
+
+
+@app.websocket("/ws/notify/{user_id}")
+async def ws_notify(websocket: WebSocket, user_id: str):
+    """Accept a websocket connection and keep it for sending notifications to a specific user_id.
+
+    For now this accepts any connection and associates it with the path user_id. In the next step
+    we'll require tokens or stronger auth.
+    """
+    # Accept and register the connection
+    try:
+        await manager.connect(user_id, websocket)
+        logger.info(f"WebSocket connected for user: {user_id}")
+        while True:
+            # Keep the connection alive by echoing pings — we don't expect incoming messages in this simple notifier
+            try:
+                data = await websocket.receive_text()
+                # Optional: handle incoming messages or pings
+                await websocket.send_text(json.dumps({"ack": data}))
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                # Sleep briefly and continue; keep connection until client disconnects
+                await asyncio.sleep(0.1)
+    finally:
+        await manager.disconnect(user_id)
+        logger.info(f"WebSocket disconnected for user: {user_id}")
+
+
+async def _reminder_pusher_loop(interval: float = 3.0):
+    """Background loop to check DB for due reminders and push notifications to connected clients."""
+    while True:
+        try:
+            db = next(get_db())
+            now = datetime.utcnow()
+            due = db.query(PersistentReminder).filter_by(delivered=False).filter(PersistentReminder.remind_at <= now).all()
+            for r in due:
+                payload = json.dumps({
+                    "type": "reminder",
+                    "id": r.id,
+                    "message": r.message,
+                    "remind_at": r.remind_at.isoformat()
+                })
+                sent = await manager.send_personal_message(r.user_id, payload)
+                # mark delivered if we sent it; otherwise leave pending so client can query
+                if sent:
+                    r.delivered = True
+            db.commit()
+            # Optional cleanup to remove delivered reminders
+            # (cleanup_reminders_db is safe here but will be done when a client fetches reminders)
+        except Exception as e:
+            logger.exception(f"Error in reminder pusher loop: {e}")
+        await asyncio.sleep(interval)
+
+
+@app.on_event("startup")
+async def startup_tasks():
+    # start background reminder pusher task
+    task = asyncio.create_task(_reminder_pusher_loop())
+    _background_tasks.append(task)
+
+
+@app.on_event("shutdown")
+async def shutdown_tasks():
+    for t in _background_tasks:
+        t.cancel()
+    # close any open websockets
+    async with manager.lock:
+        for uid, ws in list(manager.active_connections.items()):
+            try:
+                await ws.close()
+            except Exception:
+                pass
+        manager.active_connections.clear()
 
 
 # --- USER DATA ENDPOINTS ---
