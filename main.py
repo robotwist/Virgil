@@ -1,36 +1,3 @@
-# --- USER DATA ENDPOINTS ---
-# Get full conversation history for a user/session
-from fastapi.responses import JSONResponse
-
-@app.get("/history")
-async def get_conversation_history(request: Request):
-    user_id = get_user_id(request)
-    db = next(get_db())
-    history_db = db.query(Conversation).filter_by(user_id=user_id).order_by(Conversation.timestamp.asc()).all()
-    history = [
-        {
-            "id": h.id,
-            "user_id": h.user_id,
-            "message": h.message,
-            "response": h.response,
-            "timestamp": h.timestamp.isoformat()
-        }
-        for h in history_db
-    ]
-    return {"history": history}
-
-# Delete all user data (conversation + reminders)
-@app.delete("/user-data")
-async def delete_user_data(request: Request):
-    user_id = get_user_id(request)
-    db = next(get_db())
-    # Delete conversations
-    db.query(Conversation).filter_by(user_id=user_id).delete()
-    # Delete reminders
-    db.query(PersistentReminder).filter_by(user_id=user_id).delete()
-    db.commit()
-    return JSONResponse({"status": "deleted", "user_id": user_id})
-
 # --- ALL IMPORTS AT TOP ---
 import os
 import httpx
@@ -43,6 +10,7 @@ import math
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Response, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
@@ -278,6 +246,37 @@ async def get_due_reminders(request: Request):
     db.commit()
     cleanup_reminders_db(db, user_id)
     return {"reminders": reminders_out}
+
+
+# --- USER DATA ENDPOINTS ---
+@app.get("/history")
+async def get_conversation_history(request: Request):
+    user_id = get_user_id(request)
+    db = next(get_db())
+    history_db = db.query(Conversation).filter_by(user_id=user_id).order_by(Conversation.timestamp.asc()).all()
+    history = [
+        {
+            "id": h.id,
+            "user_id": h.user_id,
+            "message": h.message,
+            "response": h.response,
+            "timestamp": h.timestamp.isoformat()
+        }
+        for h in history_db
+    ]
+    return {"history": history}
+
+
+@app.delete("/user-data")
+async def delete_user_data(request: Request):
+    user_id = get_user_id(request)
+    db = next(get_db())
+    # Delete conversations
+    db.query(Conversation).filter_by(user_id=user_id).delete()
+    # Delete reminders
+    db.query(PersistentReminder).filter_by(user_id=user_id).delete()
+    db.commit()
+    return JSONResponse({"status": "deleted", "user_id": user_id})
 
 
 # Pre-defined responses for fallback
