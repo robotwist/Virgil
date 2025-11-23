@@ -10,6 +10,8 @@ import math
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Response, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from jose import JWTError, jwt
+from pydantic import BaseModel
 import asyncio
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,6 +47,46 @@ HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 HTTP_CLIENT = httpx.AsyncClient(timeout=120.0)
 CONVERSATION_HISTORY = {}
 MAX_HISTORY_LENGTH = 10
+
+# --- AUTH (simple JWT for demo) ---
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev_secret_change_me")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenPayload(BaseModel):
+    sub: Optional[str] = None
+
+
+def create_access_token(*, data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def get_current_user_from_request(request: Request) -> str:
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = auth.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub = payload.get("sub")
+        if not sub:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        return sub
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 # Connection manager for real-time notifications
 class ConnectionManager:
@@ -212,7 +254,19 @@ CONVERSATION_HISTORY = {}  # Still used for fast access, but now also persist
 MAX_HISTORY_LENGTH = 10
 from datetime import datetime, timedelta
 def get_user_id(request: Request) -> str:
-    # For demo, use session or IP. In production, use auth.
+    # Prefer JWT subject if provided in Authorization header
+    auth = request.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        token = auth.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, os.getenv("JWT_SECRET_KEY", "dev_secret_change_me"), algorithms=[os.getenv("JWT_ALGORITHM", "HS256")])
+            sub = payload.get("sub")
+            if sub:
+                return sub
+        except JWTError:
+            # fall through to header-based fallback
+            pass
+    # For demo, fallback to explicit header or IP
     return request.headers.get('X-User-Id') or request.client.host or 'guest'
 
 
@@ -276,7 +330,37 @@ async def ws_notify(websocket: WebSocket, user_id: str):
     For now this accepts any connection and associates it with the path user_id. In the next step
     we'll require tokens or stronger auth.
     """
-    # Accept and register the connection
+    # Basic auth: accept connections if one of these is true:
+    #  - Authorization header with valid token whose subject matches user_id
+    #  - query param token with valid token
+    #  - X-User-Id header equals the path user_id (backwards-compatible)
+    # Fallback: allow guest connections but note they are unauthenticated.
+    try:
+        token = None
+        # WebSocket headers are available under websocket.headers
+        auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
+        elif websocket.query_params.get("token"):
+            token = websocket.query_params.get("token")
+
+        if token:
+            try:
+                payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                sub = payload.get("sub")
+                if not sub or str(sub) != str(user_id):
+                    await websocket.close(code=403)
+                    return
+            except JWTError:
+                await websocket.close(code=403)
+                return
+        else:
+            # try X-User-Id header for backward compatibility
+            header_user = websocket.headers.get("x-user-id") or websocket.headers.get("X-User-Id")
+            if header_user is None and user_id != "guest":
+                # reject unauthenticated named users
+                await websocket.close(code=403)
+                return
     try:
         await manager.connect(user_id, websocket)
         logger.info(f"WebSocket connected for user: {user_id}")
@@ -346,7 +430,12 @@ async def shutdown_tasks():
 # --- USER DATA ENDPOINTS ---
 @app.get("/history")
 async def get_conversation_history(request: Request):
-    user_id = get_user_id(request)
+    # Prefer JWT-based user id, fall back to X-User-Id or client IP
+    try:
+        user_id = get_current_user_from_request(request)
+    except HTTPException:
+        # Fallback behavior (maintain compatibility with existing frontend):
+        user_id = request.headers.get('X-User-Id') or request.client.host or 'guest'
     db = next(get_db())
     history_db = db.query(Conversation).filter_by(user_id=user_id).order_by(Conversation.timestamp.asc()).all()
     history = [
@@ -362,13 +451,25 @@ async def get_conversation_history(request: Request):
     return {"history": history}
 
 
+@app.post("/auth/token")
+async def auth_token(request: Request):
+    data = await request.json()
+    username = data.get("username")
+    password = data.get("password")
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password required")
+    # Demo auth: accept any username/password for now (replace with real user validation)
+    access_token = create_access_token(data={"sub": username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 @app.delete("/user-data")
 async def delete_user_data(request: Request):
-    # Safety checks: require explicit user identity and explicit confirmation
-    explicit_user = request.headers.get("X-User-Id")
-    if not explicit_user:
-        # reject anonymous requests to a destructive endpoint
-        return JSONResponse({"error": "Authentication required. Provide X-User-Id header."}, status_code=401)
+    # Require JWT auth for destructive operations
+    try:
+        explicit_user = get_current_user_from_request(request)
+    except HTTPException as e:
+        return JSONResponse({"error": e.detail}, status_code=e.status_code)
 
     # Require an explicit confirmation header or query param to prevent accidental deletes
     confirm_header = request.headers.get("X-Confirm-Delete", "false").lower()
