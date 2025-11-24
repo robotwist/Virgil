@@ -336,14 +336,14 @@ async def ws_notify(websocket: WebSocket, user_id: str):
     #  - X-User-Id header equals the path user_id (backwards-compatible)
     # Fallback: allow guest connections but note they are unauthenticated.
     token = None
-        # WebSocket headers are available under websocket.headers
-        auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1]
-        elif websocket.query_params.get("token"):
-            token = websocket.query_params.get("token")
+    # WebSocket headers are available under websocket.headers
+    auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1]
+    elif websocket.query_params.get("token"):
+        token = websocket.query_params.get("token")
 
-        if token:
+    if token:
             try:
                 payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
                 sub = payload.get("sub")
@@ -353,10 +353,10 @@ async def ws_notify(websocket: WebSocket, user_id: str):
             except JWTError:
                 await websocket.close(code=403)
                 return
-        else:
-            # try X-User-Id header for backward compatibility
-            header_user = websocket.headers.get("x-user-id") or websocket.headers.get("X-User-Id")
-            if header_user is None and user_id != "guest":
+    else:
+        # try X-User-Id header for backward compatibility
+        header_user = websocket.headers.get("x-user-id") or websocket.headers.get("X-User-Id")
+        if header_user is None and user_id != "guest":
                 # reject unauthenticated named users
                 await websocket.close(code=403)
                 return
