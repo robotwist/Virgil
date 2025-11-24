@@ -452,9 +452,22 @@ async def get_conversation_history(request: Request):
 
 @app.post("/auth/token")
 async def auth_token(request: Request):
-    data = await request.json()
-    username = data.get("username")
-    password = data.get("password")
+    # Support both JSON and form-encoded (multipart/form-data) clients
+    username = None
+    password = None
+    try:
+        data = await request.json()
+        username = data.get("username")
+        password = data.get("password")
+    except Exception:
+        # Try form data
+        try:
+            form = await request.form()
+            username = form.get("username")
+            password = form.get("password")
+        except Exception:
+            username = None
+            password = None
     if not username or not password:
         raise HTTPException(status_code=400, detail="username and password required")
     # Demo auth: accept any username/password for now (replace with real user validation)
