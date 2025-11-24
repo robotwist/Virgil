@@ -40,7 +40,8 @@ function App() {
   const wsRef = useRef(null);
     // WebSocket notification connection
     useEffect(() => {
-      const userId = sessionId || 'guest';
+      // Prefer username (authenticated identity) for websocket path so token subject and path match.
+      const userId = (isLoggedIn && username) ? username : (sessionId || 'guest');
       const base = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/^http/, 'ws');
       const token = localStorage.getItem('authToken');
       const wsUrl = `${base}/ws/notify/${userId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
@@ -65,7 +66,7 @@ function App() {
       }
       connect();
       return () => { ws && ws.close(); };
-    }, [sessionId]);
+    }, [sessionId, isLoggedIn, username]);
   const messagesEndRef = useRef(null);
 
   // Poll for reminders every 10 seconds
