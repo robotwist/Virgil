@@ -22,7 +22,7 @@ const AdminDashboard = () => {
         
         const response = await axios.get(`${API_URL}/admin/stats`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('virgil_token')}`
+            Authorization: `Bearer ${localStorage.getItem('authToken')}`
           }
         });
         

@@ -15,7 +15,9 @@ const PrivacyControls = () => {
     setError('');
     setDeleteStatus('');
     try {
-      const res = await axios.get(`${API_URL}/history`, { withCredentials: true });
+      const token = localStorage.getItem('authToken');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API_URL}/history`, { headers, withCredentials: true });
       setHistory(res.data.history);
     } catch (e) {
       setError('Failed to fetch history.');
@@ -30,7 +32,9 @@ const PrivacyControls = () => {
     setError('');
     setDeleteStatus('');
     try {
-      await axios.delete(`${API_URL}/user-data`, { withCredentials: true });
+      const token = localStorage.getItem('authToken');
+      const headers = token ? { Authorization: `Bearer ${token}`, 'X-Confirm-Delete': 'true' } : { 'X-Confirm-Delete': 'true' };
+      await axios.delete(`${API_URL}/user-data`, { headers, withCredentials: true });
       setDeleteStatus('All your data has been deleted.');
       setHistory(null);
     } catch (e) {
