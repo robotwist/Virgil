@@ -41,7 +41,9 @@ function App() {
     // WebSocket notification connection
     useEffect(() => {
       const userId = sessionId || 'guest';
-      const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/^http/, 'ws') + `/ws/notify/${userId}`;
+      const base = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/^http/, 'ws');
+      const token = localStorage.getItem('authToken');
+      const wsUrl = `${base}/ws/notify/${userId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
       let ws;
       function connect() {
         ws = new WebSocket(wsUrl);
@@ -130,9 +132,9 @@ function App() {
     }
   }, [messages]);
 
-  useEffect(() => {
+    useEffect(() => {
     // Store the session ID in localStorage when it changes
-    localStorage.setItem('virgil_session_id', sessionId);
+    localStorage.setItem('virgilSessionId', sessionId);
   }, [sessionId]);
 
   useEffect(() => {

@@ -37,13 +37,13 @@ const InputBox = ({ sendMessage, isLoading, messages, tone, setTone, lastRespons
     
     // Load session ID from localStorage if available
     useEffect(() => {
-        const storedSessionId = localStorage.getItem('virgil_session_id');
+        const storedSessionId = localStorage.getItem('virgilSessionId');
         if (storedSessionId) {
             setSessionId(storedSessionId);
         } else {
             // Generate a new session ID if none exists
             const newSessionId = `session_${Date.now()}`;
-            localStorage.setItem('virgil_session_id', newSessionId);
+            localStorage.setItem('virgilSessionId', newSessionId);
             setSessionId(newSessionId);
         }
     }, []);
