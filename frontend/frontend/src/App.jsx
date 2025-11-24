@@ -73,7 +73,9 @@ function App() {
   useEffect(() => {
     const pollReminders = async () => {
       try {
-        const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/reminders');
+        const token = localStorage.getItem('authToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/reminders', { headers });
         if (res.ok) {
           const data = await res.json();
           if (data.reminders && data.reminders.length > 0) {
@@ -149,6 +151,9 @@ function App() {
     // Authentication is now handled by auth.js utility
     setIsLoggedIn(true);
     setUsername(username);
+    // Use authenticated username as session id so backend associates history with the user
+    setSessionId(username);
+    localStorage.setItem('virgilSessionId', username);
     setIsAdminUser(isAdmin());
   };
 
@@ -157,6 +162,8 @@ function App() {
     setIsLoggedIn(false);
     setIsAdminUser(false);
     setUsername('');
+    setSessionId('');
+    localStorage.removeItem('virgilSessionId');
   };
 
   const sendMessage = async (messageText) => {
